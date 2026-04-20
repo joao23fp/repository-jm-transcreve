@@ -1,102 +1,104 @@
-# Implementation Plan: Módulo de Envio Ágil com Gestão de Saldo e Processamento IA
+# Implementation Plan: [FEATURE]
 
-**Branch**: `001-upload-queue-management` | **Date**: 2026-04-17 | **Spec**: [spec.md](spec.md)
-**Input**: Feature specification from `/specs/001-upload-queue-management/spec.md`
+**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
+**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
+
+**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/plan-template.md` for the execution workflow.
 
 ## Summary
 
-Implementar o módulo de upload de arquivos de áudio/vídeo com validação de saldo pré-upload,
-fila de processamento assíncrona (transcrição via Groq Whisper + análise de prompt de contexto
-via LLM), reconciliação automática de créditos e notificações em tempo real. Upload realizado
-via presigned URL diretamente ao Supabase Storage; duração lida no navegador antes do envio.
+[Extract from feature spec: primary requirement + technical approach from research]
 
 ## Technical Context
 
-**Language/Version**: TypeScript (Next.js 14+ App Router)
-**Primary Dependencies**: Prisma, Inngest, Groq Whisper API, Supabase (DB + Storage + Realtime),
-  Clerk (auth), Resend (email), shadcn/ui, Tailwind CSS, Vitest, Sentry
-**Storage**: PostgreSQL via Supabase (jobs, reservas, metadados); Supabase Storage (arquivos
-  de mídia via presigned URL)
-**Testing**: Vitest — cobertura nas regras críticas: cota, status de jobs, reconciliação
-  de créditos, validação de formatos
-**Target Platform**: Web (Vercel), SSR/RSC Next.js App Router
-**Project Type**: web-service (full-stack Next.js, feature-based folder structure)
-**Performance Goals**: Exibição de custo estimado em <30s para 3 arquivos; progresso visível
-  em <2s após confirmar; notificação "Na fila" em ≤60s após upload
-**Constraints**: 60s por step Inngest (Vercel free tier); 2 GB / 4h por arquivo;
-  máx. 5 arquivos simultâneos por usuária
-**Scale/Scope**: Usuárias individuais (sem multitenancy em v1); fila FIFO por usuária
+<!--
+  ACTION REQUIRED: Replace the content in this section with the technical details
+  for the project. The structure here is presented in advisory capacity to guide
+  the iteration process.
+-->
+
+**Language/Version**: TypeScript (Next.js App Router)
+**Primary Dependencies**: Prisma, Inngest, Groq Whisper, Supabase (DB + Storage + Realtime), Clerk, Resend, shadcn/ui, Tailwind CSS, Vitest, Sentry
+**Storage**: PostgreSQL via Supabase; arquivos de mídia em Supabase Storage (presigned URL)
+**Testing**: Vitest — foco nas regras críticas de negócio
+**Target Platform**: Web (Vercel), SSR padrão Next.js
+**Project Type**: web-service (full-stack Next.js)
+**Performance Goals**: [domain-specific — ver Success Criteria do spec]
+**Constraints**: Limite de execução Vercel (60s/step via Inngest); 2 GB / 4h por arquivo de upload
+**Scale/Scope**: [definido por feature — ver spec correspondente]
 
 ## Constitution Check
 
-*GATE: Deve passar antes da Fase 0. Re-verificado após Fase 1.*
+*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-| Princípio | Gate | Status |
-|-----------|------|--------|
-| I. Spec-First | Spec completa + clarificação encerrada | ✅ Pass |
-| II. Legal-Grade Reliability | Créditos bloqueados antes do upload (FR-003); retry 3x + estorno total (FR-005); isolamento por usuária (FR-009); LGPD logs 90 dias (FR-010); exclusão sob demanda (FR-011) | ✅ Pass |
-| III. User-Centric AI | Prompt de contexto é opt-in (P2, User Story 3); AI não processa sem confirmação da usuária | ✅ Pass |
-| IV. Modular Architecture | Módulo com service layer próprio (`uploads.service.ts`); comunicação via Inngest jobs | ✅ Pass |
-| V. Transparent Cost Accounting | `saldo_disponivel = saldo_total - saldo_bloqueado`; bloqueio antes do upload; reconciliação automática pós-conclusão (FR-008) | ✅ Pass |
-| Tech Stack | TypeScript + Next.js + Supabase + Inngest + Groq + Clerk + Resend — alinhado com TECH_STACK_v4.md | ✅ Pass |
-
-**Resultado**: Todos os gates passaram. Pode prosseguir para Fase 0.
+[Gates determined based on constitution file]
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/001-upload-queue-management/
-├── plan.md          ← este arquivo
-├── research.md      ← Fase 0 (gerado)
-├── data-model.md    ← Fase 1 (gerado)
-├── quickstart.md    ← Fase 1 (gerado)
-├── contracts/       ← Fase 1 (gerado)
-│   └── api.md
-└── tasks.md         ← Fase 2 (/speckit.tasks — não gerado aqui)
+specs/[###-feature]/
+├── plan.md              # This file (/speckit.plan command output)
+├── research.md          # Phase 0 output (/speckit.plan command)
+├── data-model.md        # Phase 1 output (/speckit.plan command)
+├── quickstart.md        # Phase 1 output (/speckit.plan command)
+├── contracts/           # Phase 1 output (/speckit.plan command)
+└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
 ```
 
 ### Source Code (repository root)
+<!--
+  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
+  for this feature. Delete unused options and expand the chosen structure with
+  real paths (e.g., apps/admin, packages/something). The delivered plan must
+  not include Option labels.
+-->
 
 ```text
-app/
-  uploads/
-    page.tsx                         → Página de upload (Server Component)
-    components/
-      FileUploadZone.tsx             → Drag-and-drop + file picker
-      FileList.tsx                   → Lista com barras de progresso por arquivo
-      CreditPreview.tsx              → Estimativa de créditos antes de confirmar
-      ContextPromptSelector.tsx      → Dropdown de Prompt de Contexto (P2)
-      UploadConfirmButton.tsx        → Botão com validação de saldo
-    uploads.service.ts               → Regras de negócio (estimativa, bloqueio, reconciliação)
-    uploads.actions.ts               → Server Actions (gerar presigned URL, confirmar upload)
+# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
+src/
+├── models/
+├── services/
+├── cli/
+└── lib/
 
-inngest/
-  functions/
-    process-transcription.ts         → Job Inngest: etapa 1 — transcrição Groq Whisper
-    process-ai-analysis.ts           → Job Inngest: etapa 2 — análise com prompt de contexto
-    reconcile-credits.ts             → Job Inngest: reconciliação pós-conclusão
+tests/
+├── contract/
+├── integration/
+└── unit/
 
-prisma/
-  schema.prisma                      → Modelos: ProcessingJob, FileUpload, CreditReservation
-  migrations/
-    20260417_upload_queue/           → Migration desta feature
+# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
+backend/
+├── src/
+│   ├── models/
+│   ├── services/
+│   └── api/
+└── tests/
 
-lib/
-  enums.ts                           → StatusProcessamento, FormatoAceito (atualizados)
-  utils.ts                           → Funções compartilhadas
+frontend/
+├── src/
+│   ├── components/
+│   ├── pages/
+│   └── services/
+└── tests/
 
-__tests__/
-  uploads/
-    uploads.service.test.ts          → Testes: cota, estimativa, reconciliação, formatos
-    process-transcription.test.ts    → Testes: retry logic, credit refund on failure
+# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
+api/
+└── [same as backend above]
+
+ios/ or android/
+└── [platform-specific structure: feature modules, UI flows, platform tests]
 ```
 
-**Structure Decision**: Feature-based, alinhado com TECH_STACK_v4.md. Service layer isolado em
-`uploads.service.ts`. Jobs assíncronos separados por responsabilidade em `inngest/functions/`.
-Testes críticos em `__tests__/uploads/`.
+**Structure Decision**: [Document the selected structure and reference the real
+directories captured above]
 
 ## Complexity Tracking
 
-Sem violações dos gates constitucionais. Nenhuma justificativa necessária.
+> **Fill ONLY if Constitution Check has violations that must be justified**
+
+| Violation | Why Needed | Simpler Alternative Rejected Because |
+|-----------|------------|-------------------------------------|
+| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
+| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |

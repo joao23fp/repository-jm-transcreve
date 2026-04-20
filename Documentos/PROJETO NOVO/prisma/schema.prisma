@@ -1,0 +1,182 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum StatusProcessamento {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum EtapaProcessamento {
+  UPLOADING
+  QUEUED
+  TRANSCRIBING
+  ANALYZING
+  COMPLETED
+  FAILED
+}
+
+enum StatusReserva {
+  ACTIVE
+  RELEASED
+  REFUNDED
+}
+
+model Wallet {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  saldoTotal     Float    @default(0)
+  saldoBloqueado Float    @default(0)
+  updatedAt      DateTime @updatedAt
+
+  processingJobs     ProcessingJob[]
+  fileUploads        FileUpload[]
+  creditReservations CreditReservation[]
+}
+
+model ProcessingJob {
+  id                    String              @id @default(cuid())
+  userId                String
+  fileName              String
+  storagePath           String
+  fileSizeBytes         Int
+  mimeType              String
+  estimatedMinutes      Float
+  blockedMinutes        Float
+  actualMinutesConsumed Float?
+  status                StatusProcessamento @default(PENDING)
+  currentStage          EtapaProcessamento  @default(UPLOADING)
+  retryCount            Int                 @default(0)
+  promptId              String?
+  transcriptText        String?
+  errorMessage          String?
+  createdAt             DateTime            @default(now())
+  completedAt           DateTime?
+
+  wallet            Wallet            @relation(fields: [userId], references: [userId])
+  fileUpload        FileUpload?
+  creditReservation CreditReservation?
+  segments          TranscriptSegment[]
+  speakers          SpeakerProfile[]
+  chatMessages      ChatMessage[]
+  inconsistencyReports InconsistencyReport[]
+
+  @@index([userId, status])
+  @@index([userId, createdAt])
+}
+
+model FileUpload {
+  id                    String    @id @default(cuid())
+  userId                String
+  jobId                 String    @unique
+  fileName              String
+  fileSizeBytes         Int
+  mimeType              String
+  storagePath           String
+  presignedUrlExpiresAt DateTime
+  uploadConfirmedAt     DateTime?
+  processingStartTime   DateTime?
+  processingEndTime     DateTime?
+  createdAt             DateTime  @default(now())
+
+  wallet Wallet        @relation(fields: [userId], references: [userId])
+  job    ProcessingJob @relation(fields: [jobId], references: [id])
+
+  @@index([userId])
+}
+
+model CreditReservation {
+  id              String        @id @default(cuid())
+  userId          String
+  jobId           String        @unique
+  reservedMinutes Float
+  status          StatusReserva @default(ACTIVE)
+  createdAt       DateTime      @default(now())
+  releasedAt      DateTime?
+
+  wallet Wallet        @relation(fields: [userId], references: [userId])
+  job    ProcessingJob @relation(fields: [jobId], references: [id])
+
+  @@index([userId, status])
+}
+
+model LgpdLog {
+  id           String   @id @default(cuid())
+  userId       String
+  action       String
+  resourceType String
+  resourceId   String
+  ipAddress    String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model TranscriptSegment {
+  id            String   @id @default(cuid())
+  jobId         String
+  sequenceIndex Int
+  startMs       Int
+  endMs         Int
+  speakerId     String?
+  originalText  String
+  editedText    String?
+  lastEditedAt  DateTime?
+  wordTimestamps Json
+  createdAt     DateTime @default(now())
+
+  job     ProcessingJob   @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  speaker SpeakerProfile? @relation(fields: [speakerId], references: [id])
+
+  @@index([jobId, sequenceIndex])
+  @@index([jobId, startMs])
+}
+
+model SpeakerProfile {
+  id           String   @id @default(cuid())
+  jobId        String
+  suggestedTag String
+  displayName  String
+  isRenamed    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  job      ProcessingJob      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  segments TranscriptSegment[]
+
+  @@unique([jobId, suggestedTag])
+  @@index([jobId])
+}
+
+model ChatMessage {
+  id              String   @id @default(cuid())
+  jobId           String
+  userId          String
+  role            String
+  content         String
+  citedSegmentIds String[]
+  createdAt       DateTime @default(now())
+
+  job ProcessingJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, createdAt])
+}
+
+model InconsistencyReport {
+  id                   String   @id @default(cuid())
+  jobId                String
+  description          String
+  primarySegmentId     String
+  conflictingSegmentId String
+  confidenceScore      Float
+  createdAt            DateTime @default(now())
+
+  job ProcessingJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+}

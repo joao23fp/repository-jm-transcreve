@@ -51,7 +51,7 @@ Usuário faz perguntas em linguagem natural sobre conteúdo (ex: "Houve alguma c
 
 1. **Given** transcrição carregada, **When** usuário digita pergunta no chat (ex: "Qual é a alegação principal?"), **Then** sistema processa pergunta via IA e retorna resposta em ≤5 segundos
 2. **Given** resposta gerada, **When** resposta inclui citações (links em azul), **Then** clicando citação destaca trecho correspondente no texto e posiciona vídeo no início daquele trecho
-3. **Given** usuário edita transcrição, **When** edição significativa é salva (alteração em frase completa), **Then** sistema exibe aviso: "Chat pode estar baseado em versão anterior. Deseja reanalisar?"
+3. **Given** usuário edita transcrição, **When** edição significativa é salva (alteração em >50 caracteres de um segmento, conforme FR-005), **Then** sistema exibe aviso: "Chat pode estar baseado em versão anterior. Deseja reanalisar?"
 
 ---
 
@@ -93,10 +93,10 @@ Usuário clica botão "Detectar Contradições" e IA lista automaticamente trech
 
 ### Key Entities
 
-- **TranscriptSegment**: ID, file_id, start_time_ms, end_time_ms, speaker_id, original_content, edited_content, word_timestamps (array de {word, start_ms, end_ms})
-- **SpeakerProfile**: ID, file_id, suggested_name, display_name (editado pelo usuário), is_renamed (boolean), created_at
-- **ChatMessage**: ID, file_id, user_id, role (user/assistant), content, cited_segments (array de IDs de segmentos), created_at
-- **InconsistencyReport**: ID, file_id, description, primary_segment_id, conflicting_segment_id, confidence_score, created_at
+- **TranscriptSegment**: ID, jobId (FK → ProcessingJob), start_time_ms, end_time_ms, speaker_id, sequence_index, original_content, edited_content, word_timestamps (JSON array de {word, start_ms, end_ms}); armazenado como tabela Prisma normalizada, um row por segmento
+- **SpeakerProfile**: ID, jobId (FK → ProcessingJob), suggested_name, display_name (editado pelo usuário), is_renamed (boolean), created_at
+- **ChatMessage**: ID, jobId (FK → ProcessingJob), user_id, role (user/assistant), content, cited_segments (array de IDs de segmentos), created_at
+- **InconsistencyReport**: ID, jobId (FK → ProcessingJob), description, primary_segment_id, conflicting_segment_id, confidence_score, created_at
 
 ## Success Criteria *(mandatory)*
 
@@ -108,11 +108,19 @@ Usuário clica botão "Detectar Contradições" e IA lista automaticamente trech
 - **SC-004**: Detector de contradições identifica ≥80% de inconsistências reais vs. baseline jurídico (validação manual)
 - **SC-005**: 95% das citações dinâmicas levam ao trecho correto quando clicadas (±200ms de precisão)
 
+## Clarifications
+
+### Session 2026-04-18
+
+- Q: Como deve ser armazenada a transcrição estruturada com timestamps por palavra? → A: Tabela `TranscriptSegment` normalizada no banco (um row por segmento com array `word_timestamps`)
+- Q: Como tratar identificação de falantes no MVP dado que Groq Whisper não faz diarização? → A: MVP manual — segmentos sem falante por padrão; usuário clica em segmento e atribui nome livremente
+- Q: Qual LLM usar para Chat e Detector de Contradições? → A: Groq `llama-3.3-70b-versatile` (gratuito no tier atual, 128k contexto, já integrado via groq-sdk)
+
 ## Assumptions
 
 - Transcrição já foi gerada com sucesso pelo módulo anterior (Upload & Queue)
 - Word-level timestamps incluídos na transcrição (fornecido pelo provedor de transcrição)
-- Chat utiliza integração existente com modelo de IA com janela de contexto suficiente para transcrições longas
+- Chat e Detector de Contradições utilizam Groq `llama-3.3-70b-versatile` (128k tokens, gratuito no tier atual, SDK já integrado)
 - Player de vídeo expõe interface de controle de posição (seek) acessível pelo sistema
 - Usuário mantém aba aberta durante análise de IA (single-tab session assumption)
-- Sugestão automática de nomes de falantes usa lógica contextual (primeiras palavras, padrão jurídico conhecido)
+- Identificação de falantes no MVP é manual: segmentos não têm falante por padrão; usuário atribui nomes clicando em segmentos. Diarização automática (AssemblyAI, pyannote) é fora de escopo para este módulo.

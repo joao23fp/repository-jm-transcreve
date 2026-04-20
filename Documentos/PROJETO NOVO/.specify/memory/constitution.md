@@ -92,6 +92,9 @@ Transparency builds confidence and LGPD compliance.
   Admin & Billing.
 - Each module has its own service layer (`*.service.ts`), database schema via Prisma migrations,
   and test suite.
+- **MVP Exception**: Route handlers may contain business logic inline when the endpoint has ≤3
+  business operations and no cross-module reuse. Extracting to `*.service.ts` is required before
+  the logic is shared across routes or exceeds this threshold.
 - Inter-module communication is asynchronous (Inngest jobs, webhooks) wherever possible.
 - Module failures do not cascade; the system degrades gracefully (e.g., if video clipping fails,
   transcription remains available).
@@ -159,16 +162,15 @@ Limite por arquivo: **2 GB de tamanho / 4 horas de duração**.
 > (spec session 2026-04-17) é autoritativa e substituiu WebM por MKV, AVI e OGG.
 > TECH_STACK_v4.md deve ser atualizado para refletir essa decisão.
 
-### Decisão Pendente — Diarização (Módulo 002)
+### Decisão — Identificação de Falantes (Módulo 002)
 
-**TODO(DIARIZATION_DECISION)**: O Módulo 002 requer identificação automática de falantes
-(Speaker Diarization). O Groq Whisper não suporta diarização nativamente. Antes de implementar
-o Módulo 002, DEVE ser definido:
-- Provedor de diarização (candidatos: AssemblyAI, Deepgram, pyannote.audio auto-hospedado)
-- Integração com o pipeline Inngest existente
-- Impacto no custo por minuto processado
+**RESOLVED (2026-04-18)**: Diarização automática está **fora do escopo do MVP**.
+O Módulo 002 adota identificação **manual** de falantes:
+- Segmentos não têm falante atribuído por padrão.
+- Usuário clica em segmento e atribui nome livremente via `SpeakerProfile`.
+- Diarização automática (AssemblyAI, Deepgram, pyannote) é candidata a módulo futuro.
 
-**Esta decisão bloqueia o início da implementação do Módulo 002.**
+**Esta decisão não bloqueia a implementação do Módulo 002.**
 
 ## Data Retention & Privacy
 

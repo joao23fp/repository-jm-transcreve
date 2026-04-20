@@ -34,7 +34,10 @@
 - [ ] T004 Adicionar modelos `ProcessingJob`, `FileUpload`, `CreditReservation` e complemento `Wallet` ao `prisma/schema.prisma` conforme data-model.md (incluindo enums, indexes e relações)
 - [ ] T005 Gerar e aplicar migration Prisma em `prisma/migrations/20260417_upload_queue/` — executar `npx prisma migrate dev --name upload_queue`
 - [ ] T006 [P] Proteger rotas `/api/uploads/*` com middleware Clerk em `middleware.ts` — adicionar matcher para o path `/api/uploads/(.*)`
-- [ ] T007 [P] Criar `app/uploads/uploads.service.ts` com funções: `estimateCredits(durationSeconds)`, `checkBalance(userId, minutes)`, `blockCredits(tx, userId, jobId, minutes)` e `refundCredits(jobId, reason)` usando `prisma.$transaction()`
+- [ ] T007 [P] Criar `app/uploads/uploads.service.ts` com funções: `estimateCredits(durationSeconds)`, `checkBalance(userId, minutes)`, `blockCredits(tx, userId, jobId, minutes)` (calcula `saldoDisponivel = saldoTotal - saldoBloqueado` explicitamente) e `refundCredits(jobId, reason)` usando `prisma.$transaction()`
+- [ ] T035 [P] Criar webhook Clerk `user.created` em `app/api/webhooks/clerk/route.ts`: verificar assinatura Svix, criar `Wallet` com `saldoTotal: 0` para nova usuária via `prisma.wallet.create()` (FR-014)
+- [ ] T036 [P] Configurar RLS policies no Supabase para tabelas `ProcessingJob`, `FileUpload` e `CreditReservation`: `USING (auth.uid()::text = "userId")` em `prisma/migrations/20260417_upload_queue_rls/migration.sql` (FR-009)
+- [ ] T037 [P] Configurar CORS policy no bucket Supabase Storage para permitir `PUT` de `localhost:3000` e origem de produção — documentar em `docs/supabase-setup.md`
 
 **Checkpoint**: Foundation pronta — implementação das User Stories pode começar
 
@@ -51,7 +54,7 @@
 - [ ] T008 [P] [US1] Implementar `GET /api/uploads/jobs` com filtro por status, paginação por cursor e isolamento por `userId` em `app/api/uploads/jobs/route.ts`
 - [ ] T009 [P] [US1] Implementar `GET /api/uploads/jobs/[jobId]` (detalhes) e `DELETE /api/uploads/jobs/[jobId]` (cancelar + estornar; rejeitar se COMPLETED com 409) em `app/api/uploads/jobs/[jobId]/route.ts`
 - [ ] T010 [US1] Implementar `POST /api/uploads/presigned-url`: validar formatos/tamanho/duração, chamar `blockCredits()` em transaction, gerar presigned URL via Supabase Storage SDK, retornar `{ jobs, walletSnapshot }` em `app/api/uploads/presigned-url/route.ts`
-- [ ] T011 [US1] Implementar `POST /api/uploads/confirm`: verificar que `jobId` pertence à usuária autenticada, atualizar `FileUpload.uploadConfirmedAt`, mudar `currentStage` para `QUEUED`, emitir evento `upload/confirmed` via `inngest.send()` em `app/api/uploads/confirm/route.ts`
+- [ ] T011 [US1] Implementar `POST /api/uploads/confirm`: verificar que `jobId` pertence à usuária autenticada; verificar idempotência (`uploadConfirmedAt` já preenchido → retornar 200 sem re-emitir evento); atualizar `FileUpload.uploadConfirmedAt`, mudar `currentStage` para `QUEUED`, emitir evento `upload/confirmed` via `inngest.send()` em `app/api/uploads/confirm/route.ts`
 
 ### Implementação — UI Components
 
@@ -75,7 +78,7 @@
 
 ### Implementação — Inngest Functions
 
-- [ ] T019 [P] [US2] Criar função Inngest `process-transcription` com `retries: 3`: step `transcribe` (Groq Whisper via URL do Supabase Storage), step `update-status` (muda `currentStage` para `TRANSCRIBING` → emite `transcript/completed`), `onFailure` handler (chama `refundCredits()` + `notifyUserFailure()`) em `inngest/functions/process-transcription.ts`
+- [ ] T019 [P] [US2] Criar função Inngest `process-transcription` com `retries: 3`: step `transcribe` (Groq Whisper via URL do Supabase Storage); mapear erros Groq — `invalid_file`/`unsupported_format` → FAILED imediato sem retry; erros de serviço → retry normal; step `update-status` (muda `currentStage` para `TRANSCRIBING` → emite `transcript/completed`); `onFailure` handler (chama `refundCredits()` + `notifyUserFailure()`) em `inngest/functions/process-transcription.ts`
 - [ ] T020 [P] [US2] Criar função Inngest `process-ai-analysis` com `retries: 3`: step `analyze` (chama LLM com prompt de contexto), step `save-result` (salva transcrição, muda status para `COMPLETED`, atualiza `actualMinutesConsumed`), `onFailure` handler (estorno + email) em `inngest/functions/process-ai-analysis.ts`
 - [ ] T021 [P] [US2] Criar função Inngest `reconcile-credits`: ouvir evento `transcript/completed`, calcular diferença entre `blockedMinutes` e `actualMinutesConsumed`, estornar diferença se `actual < blocked`, atualizar `CreditReservation.status` para `RELEASED` em `inngest/functions/reconcile-credits.ts`
 - [ ] T022 [P] [US2] Criar helpers de email Resend: `sendSuccessEmail(userId, fileName)` e `sendFailureEmail(userId, fileName, refundedMinutes)` com templates HTML em `lib/email/upload-notifications.ts`
@@ -86,7 +89,8 @@
 
 ### Implementação — Registro Inngest
 
-- [ ] T024 [US2] Registrar as 3 funções Inngest (`process-transcription`, `process-ai-analysis`, `reconcile-credits`) no endpoint handler em `app/api/inngest/route.ts`
+- [ ] T024 [US2] Registrar as 4 funções Inngest (`process-transcription`, `process-ai-analysis`, `reconcile-credits`, `expire-pending-uploads`) no endpoint handler em `app/api/inngest/route.ts`
+- [ ] T038 [P] [US2] Criar função Inngest cron `expire-pending-uploads` com schedule `*/15 * * * *`: buscar `FileUpload` com `presignedUrlExpiresAt < now` e `uploadConfirmedAt` nulo → marcar `ProcessingJob` como `FAILED`, `CreditReservation.status` como `REFUNDED`, estornar créditos, enviar `sendExpiredUploadEmail()` em `inngest/functions/expire-pending-uploads.ts` (FR-013)
 
 **Checkpoint**: US1 + US2 funcionalmente completas — testar Cenários 2, 3 e 5 do quickstart.md
 
