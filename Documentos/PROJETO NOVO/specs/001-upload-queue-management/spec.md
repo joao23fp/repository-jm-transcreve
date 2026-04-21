@@ -15,7 +15,7 @@
 - Q: Quais formatos de arquivo são suportados para upload? → A: Vídeo: MP4, MKV, MOV, AVI — Áudio: MP3, WAV, M4A, OGG
 - Q: A plataforma está sujeita à LGPD? Qual o nível de conformidade esperado em v1? → A: LGPD aplicável — plataforma atua como operadora; política mínima: retenção de 7 dias, logs de acesso por 90 dias, exclusão sob demanda suportada
 
-### Session 2026-04-17 (parte 2)
+### Session 2026-04-17 (parte 3)
 
 - Q: Qual é o método de upload de arquivos — multipart via servidor ou presigned URL direto ao storage? → A: Presigned URL: navegador envia direto ao Supabase Storage; servidor recebe confirmação e enfileira o job no Inngest
 - Q: Qual feedback visual a usuária recebe durante o upload e processamento? → A: Barra de progresso por arquivo (% enviado) + etapas visíveis: Enviando → Na fila → Transcrevendo → Concluído
@@ -109,6 +109,7 @@ Usuário escolhe um "Prompt de Contexto" (ex: "Resumo de Audiência", "Focar em 
 - **FR-011**: Sistema DEVE suportar exclusão sob demanda de todos os dados de uma usuária (arquivos, jobs, transcrições, logs) em atendimento ao direito de eliminação previsto na LGPD
 - **FR-008**: Sistema DEVE reconciliar créditos: se tarefa levou 7 minutos mas 8 foram bloqueados, estornar 1 minuto automaticamente
 - **FR-014**: Sistema DEVE criar registro `Wallet` com `saldoTotal: 0` para cada nova usuária via webhook Clerk `user.created` (endpoint `POST /api/webhooks/clerk`); sem Wallet, nenhum upload pode ser iniciado
+- **FR-015**: Sistema DEVE notificar a usuária quando o saldo disponível (`saldoTotal - saldoBloqueado`) atingir os limiares de 20% e 5% do `saldoTotal`: exibir alerta visual no componente `CreditPreview` (badge âmbar em ≤20%, badge vermelho em ≤5%) e enviar email via `sendLowBalanceEmail(userId, percentRemaining)` na primeira vez que cada limiar for cruzado por sessão de processamento
 - **FR-013**: Sistema DEVE executar job agendado a cada 15 minutos para detectar `CreditReservation` com status `ACTIVE` cuja presigned URL expirou (`FileUpload.presignedUrlExpiresAt < now`) e `uploadConfirmedAt` ainda nulo → marcar `ProcessingJob` como `FAILED`, marcar `CreditReservation.status` como `REFUNDED`, estornar créditos e enviar email via template dedicado `sendExpiredUploadEmail`: "Seu upload de {filename} não foi concluído — o tempo expirou. Seus créditos foram estornados. Tente novamente."
 
 ### Key Entities

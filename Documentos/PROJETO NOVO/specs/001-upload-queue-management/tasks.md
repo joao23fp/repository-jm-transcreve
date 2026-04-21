@@ -36,8 +36,8 @@
 - [ ] T006 [P] Proteger rotas `/api/uploads/*` com middleware Clerk em `middleware.ts` — adicionar matcher para o path `/api/uploads/(.*)`
 - [ ] T007 [P] Criar `app/uploads/uploads.service.ts` com funções: `estimateCredits(durationSeconds)`, `checkBalance(userId, minutes)`, `blockCredits(tx, userId, jobId, minutes)` (calcula `saldoDisponivel = saldoTotal - saldoBloqueado` explicitamente) e `refundCredits(jobId, reason)` usando `prisma.$transaction()`
 - [ ] T035 [P] Criar webhook Clerk `user.created` em `app/api/webhooks/clerk/route.ts`: verificar assinatura Svix, criar `Wallet` com `saldoTotal: 0` para nova usuária via `prisma.wallet.create()` (FR-014)
-- [ ] T036 [P] Configurar RLS policies no Supabase para tabelas `ProcessingJob`, `FileUpload` e `CreditReservation`: `USING (auth.uid()::text = "userId")` em `prisma/migrations/20260417_upload_queue_rls/migration.sql` (FR-009)
-- [ ] T037 [P] Configurar CORS policy no bucket Supabase Storage para permitir `PUT` de `localhost:3000` e origem de produção — documentar em `docs/supabase-setup.md`
+- [ ] T036 [P] Configurar RLS policies no Supabase para tabelas `ProcessingJob`, `FileUpload` e `CreditReservation`: `USING (auth.uid()::text = "userId")` em `prisma/migrations/20260417_upload_queue_rls/migration.sql` (FR-009) — aplicar via `supabase db push` ou copiando o SQL no Supabase SQL Editor; documentar passo em `docs/supabase-setup.md`
+- [ ] T037 [P] Configurar CORS policy no bucket Supabase Storage: acessar Supabase Dashboard → Storage → bucket → CORS, adicionar origens `http://localhost:3000` e URL de produção com método `PUT` permitido — documentar passos em `docs/supabase-setup.md` (não é alteração de código; é configuração manual no dashboard)
 
 **Checkpoint**: Foundation pronta — implementação das User Stories pode começar
 
@@ -81,7 +81,7 @@
 - [ ] T019 [P] [US2] Criar função Inngest `process-transcription` com `retries: 3`: step `transcribe` (Groq Whisper via URL do Supabase Storage); mapear erros Groq — `invalid_file`/`unsupported_format` → FAILED imediato sem retry; erros de serviço → retry normal; step `update-status` (muda `currentStage` para `TRANSCRIBING` → emite `transcript/completed`); `onFailure` handler (chama `refundCredits()` + `notifyUserFailure()`) em `inngest/functions/process-transcription.ts`
 - [ ] T020 [P] [US2] Criar função Inngest `process-ai-analysis` com `retries: 3`: step `analyze` (chama LLM com prompt de contexto), step `save-result` (salva transcrição, muda status para `COMPLETED`, atualiza `actualMinutesConsumed`), `onFailure` handler (estorno + email) em `inngest/functions/process-ai-analysis.ts`
 - [ ] T021 [P] [US2] Criar função Inngest `reconcile-credits`: ouvir evento `transcript/completed`, calcular diferença entre `blockedMinutes` e `actualMinutesConsumed`, estornar diferença se `actual < blocked`, atualizar `CreditReservation.status` para `RELEASED` em `inngest/functions/reconcile-credits.ts`
-- [ ] T022 [P] [US2] Criar helpers de email Resend: `sendSuccessEmail(userId, fileName)` e `sendFailureEmail(userId, fileName, refundedMinutes)` com templates HTML em `lib/email/upload-notifications.ts`
+- [ ] T022 [P] [US2] Criar helpers de email Resend em `lib/email/upload-notifications.ts`: `sendSuccessEmail(userId, fileName)`, `sendFailureEmail(userId, fileName, refundedMinutes)`, `sendExpiredUploadEmail(userId, fileName)` (template: "Seu upload de {filename} não foi concluído — o tempo expirou. Seus créditos foram estornados. Tente novamente.") e `sendLowBalanceEmail(userId, percentRemaining)` (FR-013, FR-015)
 
 ### Implementação — Realtime no Cliente
 
@@ -89,7 +89,7 @@
 
 ### Implementação — Registro Inngest
 
-- [ ] T024 [US2] Registrar as 4 funções Inngest (`process-transcription`, `process-ai-analysis`, `reconcile-credits`, `expire-pending-uploads`) no endpoint handler em `app/api/inngest/route.ts`
+- [ ] T024 [US2] Registrar as 4 funções Inngest (`process-transcription`, `process-ai-analysis`, `reconcile-credits`, `expire-pending-uploads`) no endpoint handler em `app/api/inngest/route.ts` — **depende de T038** (a função `expire-pending-uploads` deve existir antes de ser registrada aqui)
 - [ ] T038 [P] [US2] Criar função Inngest cron `expire-pending-uploads` com schedule `*/15 * * * *`: buscar `FileUpload` com `presignedUrlExpiresAt < now` e `uploadConfirmedAt` nulo → marcar `ProcessingJob` como `FAILED`, `CreditReservation.status` como `REFUNDED`, estornar créditos, enviar `sendExpiredUploadEmail()` em `inngest/functions/expire-pending-uploads.ts` (FR-013)
 
 **Checkpoint**: US1 + US2 funcionalmente completas — testar Cenários 2, 3 e 5 do quickstart.md
@@ -117,12 +117,13 @@
 
 **Propósito**: Qualidade, conformidade e validação end-to-end
 
+- [ ] T039 [P] Implementar notificação de saldo baixo (FR-015): adicionar função `checkBalanceThresholds(userId, wallet)` em `app/uploads/uploads.service.ts` — se `saldoDisponivel/saldoTotal ≤ 0.20` exibe badge âmbar no `CreditPreview`; se `≤ 0.05` exibe badge vermelho; na primeira vez que cada limiar for cruzado por sessão chama `sendLowBalanceEmail()` em `lib/email/upload-notifications.ts`; chamar após `blockCredits()` e `refundCredits()`
 - [ ] T029 [P] Implementar middleware de log de acesso LGPD (FR-010): registrar `userId`, `action`, `resourceId`, `timestamp` para rotas `/api/uploads/*` com retenção de 90 dias em `lib/lgpd-logger.ts` e injetar via wrapper nas route handlers
 - [ ] T030 [P] Implementar endpoint de exclusão sob demanda LGPD (FR-011): deletar `ProcessingJob`, `FileUpload`, `CreditReservation` e arquivos no Storage para `userId` em `app/api/uploads/delete-user-data/route.ts`
 - [ ] T031 [P] Adicionar instrumentação Sentry nos handlers `onFailure` e nos steps críticos das funções Inngest em `inngest/functions/process-transcription.ts` e `inngest/functions/process-ai-analysis.ts`
 - [ ] T032 [P] Escrever testes Vitest para regras críticas de negócio: `estimateCredits`, `blockCredits` (overdraft prevention), `refundCredits`, validação de formatos em `__tests__/uploads/uploads.service.test.ts`
 - [ ] T033 [P] Escrever testes Vitest para retry logic e credit refund no `onFailure` handler em `__tests__/uploads/process-transcription.test.ts`
-- [ ] T034 Validar Cenários 1–6 do `specs/001-upload-queue-management/quickstart.md` em ambiente local com Inngest dev server
+- [ ] T034 Validar Cenários 1–6 do `specs/001-upload-queue-management/quickstart.md` em ambiente local com Inngest dev server; confirmar SC-001 (estimativa exibida em <30s), SC-002 (simular falhas e verificar retry + estorno), SC-003 (barra de progresso aparece em <2s após confirmar upload), SC-004 (saldo correto após reconciliação), SC-005 (email recebido após conclusão)
 
 ---
 
@@ -218,10 +219,10 @@ Task T029, T030, T031, T032, T033
 | Phase 3: US1 | T008–T018 | Upload + Saldo | P1 🎯 MVP |
 | Phase 4: US2 | T019–T024 | Processamento Assíncrono | P1 |
 | Phase 5: US3 | T025–T028 | Prompts de Contexto | P2 |
-| Phase 6: Polish | T029–T034 | — | Qualidade / LGPD |
-| **Total** | **34 tarefas** | **3 user stories** | |
+| Phase 6: Polish | T029–T034, T039 | — | Qualidade / LGPD |
+| **Total** | **39 tarefas** | **3 user stories** | |
 
-**Oportunidades de paralelismo**: 18 tarefas marcadas com [P]
+**Oportunidades de paralelismo**: 19 tarefas marcadas com [P]
 
 **Critérios de aceite por história**:
 - US1: SC-001 (estimativa <30s), SC-003 (barra de progresso <2s), Cenários 1 e 4 do quickstart

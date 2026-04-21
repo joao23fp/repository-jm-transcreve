@@ -1,13 +1,11 @@
-# Implementation Plan: [FEATURE]
+# Implementation Plan: Módulo de Envio Ágil com Gestão de Saldo
 
-**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
-**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
-
-**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/plan-template.md` for the execution workflow.
+**Branch**: `001-upload-queue-management` | **Date**: 2026-04-17 | **Spec**: [spec.md](./spec.md)
+**Input**: Feature specification from `/specs/001-upload-queue-management/spec.md`
 
 ## Summary
 
-[Extract from feature spec: primary requirement + technical approach from research]
+Upload de múltiplos arquivos (até 5 simultâneos, máx. 2 GB / 4h por arquivo) via presigned URL diretamente ao Supabase Storage — o servidor nunca toca nos bytes do arquivo. Créditos são bloqueados atomicamente no momento da geração da presigned URL (POST /presigned-url); o processamento assíncrono é orquestrado pelo Inngest com até 3 retentativas automáticas por etapa (transcrição Groq + análise IA); créditos são reconciliados ao final e estornados integralmente em caso de falha. Atualizações de status em tempo real via Supabase Realtime.
 
 ## Technical Context
 
@@ -31,7 +29,16 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+| Princípio | Gate | Status | Notas |
+|-----------|------|--------|-------|
+| I — Spec-First | Spec aprovada antes de código | ✅ PASS | spec.md com clarificações completas (5 sessões) |
+| II — Data Integrity | Operações transacionais + idempotentes | ✅ PASS | `blockCredits` em `$transaction`; `confirm` verifica `uploadConfirmedAt` |
+| II — Isolamento | Nenhuma usuária acessa dados de outra | ✅ PASS | RLS policies no Supabase (T036) + filtro `userId` em todas as queries |
+| II — LGPD | Logs 90 dias + exclusão sob demanda | ✅ PASS | T029 (lgpd-logger) + T030 (delete-user-data) |
+| III — AI Traceability | N/A neste módulo | ✅ N/A | Módulo de upload não expõe outputs de IA ao usuário |
+| IV — Camada de serviço | Regras de negócio em `*.service.ts` | ✅ PASS | `uploads.service.ts` centraliza `estimateCredits`, `blockCredits`, `refundCredits` |
+| V — Cost Accounting | Reserva antes de processar + reconciliação | ✅ PASS | FR-003 (bloqueio na presigned URL) + T021 (reconcile-credits) |
+| V — Notificação 20%/5% | Alertas de saldo baixo | ✅ PASS | FR-015 + T039 adicionados após análise `/speckit.analyze` (2026-04-20) |
 
 ## Project Structure
 
@@ -48,57 +55,51 @@ specs/[###-feature]/
 ```
 
 ### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
 
 ```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
-src/
-├── models/
-├── services/
-├── cli/
-└── lib/
-
-tests/
-├── contract/
-├── integration/
-└── unit/
-
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
-backend/
-├── src/
-│   ├── models/
-│   ├── services/
-│   └── api/
-└── tests/
-
-frontend/
-├── src/
+app/
+├── uploads/
+│   ├── page.tsx                          # Server Component — busca saldo inicial
+│   ├── UploadClient.tsx                  # Client root — orquestra upload flow
+│   ├── uploads.actions.ts               # Server Actions
+│   ├── uploads.service.ts               # Regras de negócio (créditos, validação)
 │   ├── components/
-│   ├── pages/
-│   └── services/
-└── tests/
+│   │   ├── FileUploadZone.tsx            # Drag-and-drop + file picker
+│   │   ├── FileList.tsx                  # Lista de arquivos + barra de progresso + Realtime
+│   │   ├── CreditPreview.tsx             # Estimativa + alertas de saldo baixo
+│   │   ├── UploadConfirmButton.tsx       # Dispara presigned-url + upload XHR
+│   │   └── ContextPromptSelector.tsx    # Dropdown de prompts (US3)
+│   └── utils/
+│       └── get-file-duration.ts          # Lê duração client-side via HTMLMediaElement
+│
+├── api/uploads/
+│   ├── presigned-url/route.ts            # POST — valida, bloqueia créditos, gera URL
+│   ├── confirm/route.ts                  # POST — confirma upload, enfileira Inngest
+│   ├── jobs/route.ts                     # GET — lista jobs da usuária
+│   └── jobs/[jobId]/route.ts             # GET detalhes / DELETE cancelar
+│
+├── api/webhooks/
+│   └── clerk/route.ts                    # POST user.created → cria Wallet
 
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
+inngest/functions/
+├── process-transcription.ts             # Transcrição Groq + retry + onFailure
+├── process-ai-analysis.ts               # Análise IA + retry + onFailure
+├── reconcile-credits.ts                 # Reconciliação actual vs blocked
+└── expire-pending-uploads.ts            # Cron 15min — expira presigned URLs
 
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
+lib/
+├── enums.ts                              # StatusProcessamento, EtapaProcessamento, etc.
+├── email/upload-notifications.ts        # sendSuccessEmail, sendFailureEmail, sendExpiredUploadEmail, sendLowBalanceEmail
+├── lgpd-logger.ts                        # Middleware de log de acesso (90 dias)
+└── supabase/server.ts + browser.ts
+
+__tests__/uploads/
+├── uploads.service.test.ts              # estimateCredits, blockCredits, refundCredits
+└── process-transcription.test.ts        # retry logic + credit refund on failure
 ```
 
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
+**Structure Decision**: Next.js App Router full-stack — front-end e back-end no mesmo projeto. Feature organizada em `app/uploads/` com separação clara entre Server Components, Client Components, Server Actions e service layer.
 
 ## Complexity Tracking
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
-
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+> Nenhuma violação da Constituição identificada. Todos os gates passados.
