@@ -20,9 +20,14 @@ export default async function UploadsPage() {
         <h1 style={{ fontSize: 24, fontWeight: 600, color: 'var(--ta-text-primary)' }}>
           Enviar Arquivos
         </h1>
-        <Link href="/resultados" style={{ fontSize: 13, color: 'var(--ta-text-info)', textDecoration: 'none', fontWeight: 500 }}>
-          Ver transcrições →
-        </Link>
+        <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center' }}>
+          <Link href="/dashboard" style={{ fontSize: 13, color: 'var(--ta-text-info)', textDecoration: 'none', fontWeight: 500 }}>
+            💳 Créditos
+          </Link>
+          <Link href="/resultados" style={{ fontSize: 13, color: 'var(--ta-text-info)', textDecoration: 'none', fontWeight: 500 }}>
+            Ver transcrições →
+          </Link>
+        </div>
       </div>
       <UploadClient userId={userId} saldoInicial={saldoInicial} />
     </main>

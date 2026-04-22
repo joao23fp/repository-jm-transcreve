@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { getAuthUserId } from '@/lib/auth-local'
 import { getWalletWithStats } from '@/app/billing/billing.service'
 import { prisma } from '@/lib/prisma'
@@ -33,9 +34,14 @@ export default async function DashboardPage() {
 
   return (
     <main style={{ padding: '2rem', maxWidth: '720px', margin: '0 auto' }}>
-      <h1 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1.5rem', color: 'var(--text)' }}>
-        Dashboard de Créditos
-      </h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <h1 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text)' }}>
+          Dashboard de Créditos
+        </h1>
+        <Link href="/uploads" style={{ fontSize: 13, color: 'var(--accent)', textDecoration: 'none', fontWeight: 500 }}>
+          ← Enviar arquivos
+        </Link>
+      </div>
       <DashboardClient
         wallet={wallet}
         transactions={serialized}

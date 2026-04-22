@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { StatusReserva, StatusProcessamento, EtapaProcessamento } from '@/lib/enums'
+import { checkAndNotifyLowBalance } from '@/app/billing/billing.service'
 
 export function estimateCredits(durationSeconds: number): number {
   return Math.ceil(durationSeconds / 60)
@@ -95,6 +96,15 @@ export async function reconcileCredits(
       },
     }),
   ])
+
+  const wallet = await prisma.wallet.findUnique({ where: { userId: reservation.userId } })
+  if (wallet) {
+    await checkAndNotifyLowBalance(
+      reservation.userId,
+      wallet.saldoTotal - wallet.saldoBloqueado,
+      wallet.saldoTotal
+    ).catch(() => null)
+  }
 }
 
 export class InsufficientBalanceError extends Error {

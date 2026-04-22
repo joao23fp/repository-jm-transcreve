@@ -78,7 +78,7 @@
 **Teste Independente**: Iniciar upload de 15 min com saldo de 20 min → dashboard mostra "5 disponíveis (15 bloqueados)"; após conclusão → saldo reconciliado + Transaction ESTORNO visível.
 
 - [ ] T019 [P] [US3] Atualizar `app/uploads/uploads.service.ts`: em `blockCredits()`, após `prisma.$transaction()` que atualiza Wallet, adicionar chamada `createTransaction(tx, userId, 'BLOQUEIO', -reservedMinutes, 'ProcessingJob', jobId, novoSaldoTotal - novoSaldoBloqueado, 'Bloqueio para processamento de ' + fileName)`; em `refundCredits()`, adicionar `createTransaction(tx, userId, type === 'FAILED' ? 'ESTORNO' : 'CONSUMO', deltaMinutes, 'ProcessingJob', jobId, balanceAfter, description)` (importar `createTransaction` de `app/billing/billing.service.ts`)
-- [ ] T020 [US3] Atualizar `app/dashboard/components/WalletCard.tsx`: garantir que `saldoBloqueado > 0` exibe linha secundária "Y bloqueados (em processamento)" com ícone de loading âmbar; atualização via Realtime já configurada em `DashboardClient`
+- [x] T020 [US3] ~~Atualizar `app/dashboard/components/WalletCard.tsx`~~ — **já implementado em T009** (Phase 3): WalletCard exibe linha secundária com ⏳ quando `saldoBloqueado > 0`
 
 **Checkpoint**: US3 testável via Cenário 4 do quickstart.md
 
