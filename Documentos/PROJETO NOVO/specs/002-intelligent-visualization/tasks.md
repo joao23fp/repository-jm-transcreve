@@ -86,7 +86,7 @@
 - [ ] T020 [US3] Criar `app/resultados/[jobId]/ChatPanel.tsx`: Client Component com input de mensagem, lista de mensagens, fetch SSE para `/api/jobs/[jobId]/chat`, renderização de tokens em streaming, e `onCitationClick(segmentId, startMs)` que chama `seekRef` (contrato UI: api-contracts.md#ChatPanel)
 - [ ] T021 [US3] Persistir `ChatMessage` no banco após cada troca (user + assistant) em `app/api/jobs/[jobId]/chat/route.ts`
 - [ ] T022 [US3] Integrar `ChatPanel` no `ViewerLayout.tsx`: passar `onCitationClick` que chama `seekRef.current.seekToMs(startMs)`
-- [ ] T031 [US3] Implementar aviso de invalidação de chat em `ChatPanel.tsx`: se `lastEditedAt` (recebido via `ViewerLayout`) for posterior ao `createdAt` da última mensagem, exibir banner "Transcrição editada — o chat pode estar desatualizado. Reanalisar?" com botão para limpar histórico (FR-005)
+- [ ] T023b [US3] Implementar aviso de invalidação de chat em `ChatPanel.tsx`: se `lastEditedAt` (recebido via `ViewerLayout`) for posterior ao `createdAt` da última mensagem, exibir banner "Transcrição editada — o chat pode estar desatualizado. Reanalisar?" com botão para limpar histórico (FR-005)
 
 **Checkpoint**: US3 funcional e testável via quickstart.md §5.
 
@@ -116,7 +116,8 @@
 - [ ] T027 [P] Suporte a arquivo sem vídeo (OGG/MP3) em `VideoPlayer.tsx`: renderizar `<audio>` em vez de `<video>` baseado em `mimeType`
 - [ ] T028 [P] Adicionar aviso de truncamento ao chat em `ChatPanel.tsx` quando transcrição >80k chars
 - [ ] T029 Retornar 404 (não 403) em todos endpoints quando job pertence a outro usuário — revisar `transcript/route.ts`, `chat/route.ts`, `contradictions/route.ts`, `speakers/route.ts`, `segments/route.ts`
-- [ ] T030 Validar golden path completo seguindo `quickstart.md`: upload → segmentos salvos → viewer → sync → speaker → chat → contradições
+- [ ] T030 Validar golden path completo seguindo `quickstart.md`: upload → segmentos salvos → viewer → sync → speaker → chat → contradições; para SC-004, validar detector com pelo menos 5 contradições-exemplo conhecidas (ex: depoimento com datas inconsistentes, afirmações opostas sobre o mesmo fato) e confirmar que ≥4 são detectadas (≥80%)
+- [ ] T031 [P] Aplicar `lgpd-logger` wrapper nas 5 rotas `/api/jobs/[jobId]/`: `transcript/route.ts`, `chat/route.ts`, `contradictions/route.ts`, `speakers/[speakerId]/route.ts`, `segments/[segmentId]/route.ts` — reutilizar o middleware já criado em `lib/lgpd-logger.ts` (Módulo 001), registrando `userId`, `action`, `resourceId (jobId)`, `timestamp` (FR Constitution Princípio II — LGPD 90 dias)
 
 ---
 
