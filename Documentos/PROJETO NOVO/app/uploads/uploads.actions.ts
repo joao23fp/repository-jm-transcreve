@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import { getAuthUserId } from '@/lib/auth-local'
 import { estimateCredits, InsufficientBalanceError } from './uploads.service'
+import { createTransaction } from '@/app/billing/billing.service'
 import { inngest } from '@/inngest/client'
 import {
   MIME_TYPES_ACEITOS,
@@ -13,6 +14,7 @@ import {
   StatusProcessamento,
   EtapaProcessamento,
   StatusReserva,
+  TipoTransacao,
 } from '@/lib/enums'
 
 type FileRequest = {
@@ -56,9 +58,10 @@ export async function requestPresignedUrl(files: FileRequest[], promptId?: strin
       const saldoDisponivel = wallet.saldoTotal - wallet.saldoBloqueado
       if (saldoDisponivel < totalMinutes) throw new InsufficientBalanceError(saldoDisponivel, totalMinutes)
 
-      await tx.wallet.update({ where: { userId }, data: { saldoBloqueado: { increment: totalMinutes } } })
+      const updatedWallet = await tx.wallet.update({ where: { userId }, data: { saldoBloqueado: { increment: totalMinutes } } })
 
       const jobs = []
+      let runningBalance = updatedWallet.saldoTotal - updatedWallet.saldoBloqueado
       for (const f of filesWithMinutes) {
         const storagePath = `${userId}/${Date.now()}-${f.fileName}`
         const job = await tx.processingJob.create({
@@ -80,6 +83,11 @@ export async function requestPresignedUrl(files: FileRequest[], promptId?: strin
         await tx.creditReservation.create({
           data: { userId, jobId: job.id, reservedMinutes: f.estimatedMinutes, status: StatusReserva.ACTIVE },
         })
+        await createTransaction(
+          tx, userId, TipoTransacao.BLOQUEIO,
+          -f.estimatedMinutes, 'ProcessingJob', job.id,
+          runningBalance, `Bloqueio: ${f.fileName}`
+        )
         jobs.push({ jobId: job.id, storagePath, estimatedMinutes: f.estimatedMinutes })
       }
       return jobs
@@ -172,7 +180,7 @@ export async function cancelJob(jobId: string) {
   if (!userId) return { error: 'UNAUTHORIZED' }
   await prisma.processingJob.update({
     where: { id: jobId, userId },
-    data: { status: StatusProcessamento.CANCELLED },
+    data: { status: StatusProcessamento.FAILED },
   })
   return { ok: true }
 }

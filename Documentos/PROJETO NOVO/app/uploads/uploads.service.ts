@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
-import { StatusReserva, StatusProcessamento, EtapaProcessamento } from '@/lib/enums'
-import { checkAndNotifyLowBalance } from '@/app/billing/billing.service'
+import { StatusReserva, StatusProcessamento, EtapaProcessamento, TipoTransacao } from '@/lib/enums'
+import { checkAndNotifyLowBalance, createTransaction } from '@/app/billing/billing.service'
 
 export function estimateCredits(durationSeconds: number): number {
   return Math.ceil(durationSeconds / 60)
@@ -50,16 +50,22 @@ export async function refundCredits(
   })
   if (reservation.status !== StatusReserva.ACTIVE) return 0
 
-  await prisma.$transaction([
-    prisma.wallet.update({
+  await prisma.$transaction(async (tx) => {
+    const wallet = await tx.wallet.update({
       where: { userId: reservation.userId },
       data: { saldoBloqueado: { decrement: reservation.reservedMinutes } },
-    }),
-    prisma.creditReservation.update({
+    })
+    await tx.creditReservation.update({
       where: { jobId },
       data: { status: StatusReserva.REFUNDED, releasedAt: new Date() },
-    }),
-  ])
+    })
+    const balanceAfter = wallet.saldoTotal - wallet.saldoBloqueado
+    await createTransaction(
+      tx, reservation.userId, TipoTransacao.ESTORNO,
+      reservation.reservedMinutes, 'ProcessingJob', jobId,
+      balanceAfter, `Estorno: ${reservation.job.fileName}`
+    )
+  })
   return reservation.reservedMinutes
 }
 
@@ -69,24 +75,24 @@ export async function reconcileCredits(
 ): Promise<void> {
   const reservation = await prisma.creditReservation.findUniqueOrThrow({
     where: { jobId },
+    include: { job: true },
   })
   if (reservation.status !== StatusReserva.ACTIVE) return
 
   const refundMinutes = Math.max(0, reservation.reservedMinutes - actualMinutes)
 
-  await prisma.$transaction([
-    prisma.wallet.update({
+  let finalWallet: { saldoTotal: number; saldoBloqueado: number } | null = null
+
+  await prisma.$transaction(async (tx) => {
+    const wallet = await tx.wallet.update({
       where: { userId: reservation.userId },
       data: { saldoBloqueado: { decrement: reservation.reservedMinutes } },
-    }),
-    ...(refundMinutes > 0
-      ? []
-      : []),
-    prisma.creditReservation.update({
+    })
+    await tx.creditReservation.update({
       where: { jobId },
       data: { status: StatusReserva.RELEASED, releasedAt: new Date() },
-    }),
-    prisma.processingJob.update({
+    })
+    await tx.processingJob.update({
       where: { id: jobId },
       data: {
         actualMinutesConsumed: actualMinutes,
@@ -94,15 +100,32 @@ export async function reconcileCredits(
         currentStage: EtapaProcessamento.COMPLETED,
         completedAt: new Date(),
       },
-    }),
-  ])
+    })
 
-  const wallet = await prisma.wallet.findUnique({ where: { userId: reservation.userId } })
-  if (wallet) {
+    const balanceBase = wallet.saldoTotal - wallet.saldoBloqueado
+    if (actualMinutes > 0) {
+      await createTransaction(
+        tx, reservation.userId, TipoTransacao.CONSUMO,
+        -actualMinutes, 'ProcessingJob', jobId,
+        balanceBase + refundMinutes, `Consumo: ${reservation.job.fileName}`
+      )
+    }
+    if (refundMinutes > 0) {
+      await createTransaction(
+        tx, reservation.userId, TipoTransacao.ESTORNO,
+        refundMinutes, 'ProcessingJob', jobId,
+        balanceBase, `Estorno parcial: ${reservation.job.fileName}`
+      )
+    }
+    finalWallet = wallet
+  })
+
+  if (finalWallet) {
+    const w = finalWallet as { saldoTotal: number; saldoBloqueado: number }
     await checkAndNotifyLowBalance(
       reservation.userId,
-      wallet.saldoTotal - wallet.saldoBloqueado,
-      wallet.saldoTotal
+      w.saldoTotal - w.saldoBloqueado,
+      w.saldoTotal
     ).catch(() => null)
   }
 }
