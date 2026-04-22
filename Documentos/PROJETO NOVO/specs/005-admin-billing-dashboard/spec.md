@@ -19,7 +19,7 @@ Usuário acessa dashboard home e visualiza em painel central: saldo atual em min
 
 1. **Given** usuário autenticado com 50 minutos de saldo, **When** acessa home do dashboard, **Then** card proeminente exibe "50 minutos disponíveis" em grande fonte com cor verde
 2. **Given** dashboard carregado, **When** gráfico de uso é visualizado, **Then** mostra consumo em barras (últimos 30 dias) com datas no eixo X e minutos no Y
-3. **Given** usuário scroll down, **When** visualiza "Histórico de Transações", **Then** lista exibe data, tipo (Compra/Consumo), quantidade, saldo resultante com ordenação por data decrescente
+3. **Given** usuário scroll down, **When** visualiza "Histórico de Transações", **Then** lista exibe data, tipo (COMPRA/BLOQUEIO/ESTORNO/CONSUMO com ícone por tipo), quantidade com sinal, saldo resultante com ordenação por data decrescente
 
 ---
 
@@ -67,7 +67,7 @@ Sistema envia alertas (email + toast in-app) quando saldo atinge 20% e novamente
 
 **Acceptance Scenarios**:
 
-1. **Given** usuário com plano "100 minutos/mês" com 20 minutos restantes, **When** processamento conclui e saldo muda, **Then** toast notificação exibida: "Aviso: Saldo em 20% (20/100 minutos)" com botão "Comprar"
+1. **Given** usuária com saldo total de 100 minutos (ex: pacote plan_99 + créditos anteriores), com 20 minutos restantes disponíveis, **When** processamento conclui e saldo muda, **Then** toast notificação exibida: "Aviso: Saldo em 20% (20/100 minutos)" com botão "Comprar"
 2. **Given** saldo cai a 5 minutos, **When** novo processamento conclui, **Then** email enviado com assunto "AVISO CRÍTICO: Seu saldo está em 5%" + botão direto para compra
 3. **Given** email aviso recebido, **When** usuário clica link, **Then** retorna ao dashboard com modal de checkout pré-aberto
 
@@ -97,7 +97,7 @@ Sistema envia alertas (email + toast in-app) quando saldo atinge 20% e novamente
 ### Key Entities
 
 - **Wallet**: ID, user_id, saldo_total, saldo_bloqueado (soma de reservas ativas), saldo_disponível calculado (total - bloqueado), updated_at
-- **Transaction**: ID, user_id, type (Compra/Consumo), amount_minutes, ref_type (PaymentIntent/ProcessingJob), ref_id, balance_after, created_at
+- **Transaction**: ID, user_id, type (COMPRA/BLOQUEIO/ESTORNO/CONSUMO), amount_minutes (positivo=crédito; negativo=débito), ref_type (PaymentIntent/ProcessingJob), ref_id, balance_after, created_at
 - **PaymentIntent**: ID (do processador de pagamento), user_id, amount_cents, status (Pending/Succeeded/Failed/Expired), minutes_granted, webhook_received_at, created_at, expires_at
 - **CreditReservation**: ID, user_id, processing_job_id, reserved_minutes, released_at (quando job conclui), status (Active/Released/Refunded)
 
@@ -119,4 +119,4 @@ Sistema envia alertas (email + toast in-app) quando saldo atinge 20% e novamente
 - Dashboard é por usuário; administradores têm visão separada (não contemplada nesta spec)
 - Método de pagamento primário é cartão de crédito (transferência bancária não coberta na v1)
 - Conversão de "minutos de processamento" para "minutos de crédito" é 1:1 (sem multiplicador)
-- Planos mensais são fixos; rollover de créditos não usados não é suportado (expiram no final do mês)
+- Créditos são adquiridos em pacotes avulsos (99 min, 199 min, 499 min); não há recorrência mensal nem expiração de saldo por período

@@ -70,6 +70,7 @@ model PaymentIntent {
   planLabel         String          // ex: "99 minutos", "199 minutos"
   checkoutUrl       String          // URL gerada pelo Pagar.me
   webhookReceivedAt DateTime?       // timestamp do primeiro webhook válido
+  webhookAttempts   Int             @default(0)  // contador para escalação após 3 falhas
   createdAt         DateTime        @default(now())
   expiresAt         DateTime        // createdAt + 24h
 
@@ -77,6 +78,22 @@ model PaymentIntent {
   @@index([status, expiresAt])  // índice para o cron de expiração
 }
 ```
+
+### Model: WebhookAlert
+
+```prisma
+model WebhookAlert {
+  id              String        @id @default(cuid())
+  paymentIntentId String
+  userId          String
+  createdAt       DateTime      @default(now())
+
+  @@index([userId, createdAt])
+}
+```
+
+> Criado quando `PaymentIntent.webhookAttempts >= 3` sem SUCCEEDED — sinaliza para revisão manual.
+> Constitution Princípio II MUST: "If a webhook fails 3 times, escalate to manual review."
 
 ---
 
@@ -104,8 +121,9 @@ Wallet (userId)
   └─── PaymentIntent[] (Módulo 005) ← novo
 
 PaymentIntent
-  └── [após SUCCEEDED] → cria Transaction { type: COMPRA }
-                        → atualiza Wallet.saldoTotal += minutesGranted
+  ├── [após SUCCEEDED] → cria Transaction { type: COMPRA }
+  │                    → atualiza Wallet.saldoTotal += minutesGranted
+  └── [webhookAttempts >= 3 sem SUCCEEDED] → cria WebhookAlert → evento Inngest para revisão manual
 ```
 
 ---

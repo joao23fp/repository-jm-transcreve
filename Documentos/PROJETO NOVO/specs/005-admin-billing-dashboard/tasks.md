@@ -92,7 +92,7 @@
 
 - [ ] T021 [P] [US4] Criar função Inngest cron `expire-payment-intents` com schedule `0 * * * *` em `inngest/functions/expire-payment-intents.ts`: buscar `PaymentIntent` com `status = 'PENDING'` e `expiresAt < now`; para cada um, chamar `billing.service.expireIntent(id)`; emitir evento Supabase Realtime `wallet:{userId}` para atualizar dashboard (FR-008)
 - [ ] T022 [P] [US4] Registrar `expire-payment-intents` no endpoint Inngest em `app/api/inngest/route.ts` — adicionar à lista de funções junto com as do Módulo 001 (T022 depende de T021)
-- [ ] T023 [US4] Atualizar `app/billing/billing.service.ts`: adicionar `checkAndNotifyLowBalance(userId, wallet)` — calcular `pct = saldoDisponivel / saldoTotal`; se `pct ≤ 0.20` chamar `sendLowBalanceEmail(userId, 20)` de `lib/email/upload-notifications.ts`; se `pct ≤ 0.05` chamar `sendLowBalanceEmail(userId, 5)`; usar flag de sessão (chave `low-balance-notified-${userId}-${threshold}` em Redis ou simples verificação de Transaction recente) para evitar spam; chamar `checkAndNotifyLowBalance()` ao final de `confirmPayment()` e ao final da reconciliação de créditos no Módulo 001
+- [ ] T023 [US4] Atualizar `app/billing/billing.service.ts`: adicionar `checkAndNotifyLowBalance(userId, wallet)` — calcular `pct = saldoDisponivel / saldoTotal`; se `pct ≤ 0.20` chamar `sendLowBalanceEmail(userId, 20)` de `lib/email/upload-notifications.ts`; se `pct ≤ 0.05` chamar `sendLowBalanceEmail(userId, 5)`; evitar spam verificando via Prisma se já existe `Transaction` recente com `description LIKE 'Alerta saldo %${threshold}%'` e `createdAt > now - 24h` para esse `userId` — se existir, skip; chamar `checkAndNotifyLowBalance()` ao final de `confirmPayment()` e ao final da reconciliação de créditos no Módulo 001
 
 **Checkpoint**: US4 testável via Cenários 5 e 6 do quickstart.md
 
@@ -105,7 +105,8 @@
 - [ ] T024 [P] Aplicar `lgpd-logger` wrapper nas rotas `/api/billing/*` e `/api/webhooks/pagarme` — reutilizar `lib/lgpd-logger.ts` do Módulo 001; registrar `userId`, `action`, `resourceId`, `timestamp` (Constitution Princípio II — LGPD 90 dias)
 - [ ] T025 [P] Adicionar link "Dashboard" para `/dashboard` no header/navegação principal da aplicação — verificar se existe componente de navegação compartilhado ou adicionar em `app/layout.tsx`
 - [ ] T026 [P] Escrever testes Vitest em `__tests__/billing/billing.service.test.ts`: (1) validação HMAC do webhook — assinatura válida passa, inválida retorna 401; (2) idempotência de PaymentIntent — segundo POST retorna 409; (3) `createTransaction` atômica — se Wallet update falhar, Transaction não é criada
-- [ ] T027 Validar Cenários 1–8 do `specs/005-admin-billing-dashboard/quickstart.md` em ambiente local com Pagar.me sandbox + Inngest dev server; confirmar SC-001 (saldo nunca negativo), SC-002 (atualização ≤30s), SC-003 (reconciliação correta)
+- [ ] T028 [P] Implementar escalação de falha de webhook em `app/api/webhooks/pagarme/route.ts`: adicionar campo `webhookAttempts Int @default(0)` ao model `PaymentIntent` no `prisma/schema.prisma` (+ migration); no handler, incrementar `webhookAttempts` a cada chamada com evento válido que não resulte em SUCCEEDED; se `webhookAttempts >= 3` e status ainda PENDING, criar registro em tabela `WebhookAlert { id, paymentIntentId, userId, createdAt }` via Prisma e emitir Inngest event `billing/webhook.escalated` para revisão manual — previne pagamentos perdidos (Constitution Princípio II MUST)
+- [ ] T027 Validar Cenários 1–8 do `specs/005-admin-billing-dashboard/quickstart.md` em ambiente local com Pagar.me sandbox + Inngest dev server; confirmar SC-001 (saldo nunca negativo), SC-002 (atualização ≤30s), SC-003 (reconciliação correta), SC-004 (ciclo compra ≤5 min)
 
 ---
 
@@ -210,10 +211,10 @@ T024, T025, T026
 | Phase 4: US2 | T014–T018 | Fluxo de Compra | P1 |
 | Phase 5: US3 | T019–T020 | Créditos Bloqueados | P1 |
 | Phase 6: US4 | T021–T023 | Alertas Críticos | P2 |
-| Phase 7: Polish | T024–T027 | — | Qualidade / LGPD |
-| **Total** | **27 tarefas** | **4 user stories** | |
+| Phase 7: Polish | T024–T028 | — | Qualidade / LGPD |
+| **Total** | **28 tarefas** | **4 user stories** | |
 
-**Oportunidades de paralelismo**: 14 tarefas marcadas com [P]
+**Oportunidades de paralelismo**: 15 tarefas marcadas com [P]
 
 **Critérios de aceite por história**:
 - US1: SC-001 (saldo nunca negativo visível), dashboard carrega ≤1s, Cenário 1
