@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { confirmPayment, expireIntent } from '@/app/billing/billing.service'
 import { StatusPagamento } from '@/lib/enums'
+import { logLgpdAccess } from '@/lib/lgpd-logger'
 
 const OK = NextResponse.json({ received: true })
 
@@ -45,6 +46,7 @@ export async function POST(req: NextRequest) {
 
   if (eventType === 'order.paid') {
     await confirmPayment(orderId)
+    logLgpdAccess({ userId: intent.userId, action: 'UPDATE', resourceType: 'PaymentIntent', resourceId: orderId }).catch(() => null)
   } else if (eventType === 'order.payment_failed' || eventType === 'order.canceled') {
     const updated = await prisma.paymentIntent.update({
       where: { id: orderId },

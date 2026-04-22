@@ -3,6 +3,7 @@ import { getAuthUserId } from '@/lib/auth-local'
 import { prisma } from '@/lib/prisma'
 import { createPaymentIntent, isValidPlanId } from '@/app/billing/billing.service'
 import { StatusPagamento } from '@/lib/enums'
+import { logLgpdAccess } from '@/lib/lgpd-logger'
 
 export async function POST(req: NextRequest) {
   const userId = await getAuthUserId()
@@ -35,5 +36,6 @@ export async function POST(req: NextRequest) {
   }
 
   const result = await createPaymentIntent(userId, planId)
+  logLgpdAccess({ userId, action: 'UPDATE', resourceType: 'PaymentIntent', resourceId: result.paymentIntentId, ipAddress: req.headers.get('x-forwarded-for') ?? undefined }).catch(() => null)
   return NextResponse.json(result, { status: 201 })
 }
