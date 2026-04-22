@@ -28,6 +28,20 @@ enum StatusReserva {
   REFUNDED
 }
 
+enum TipoTransacao {
+  COMPRA
+  BLOQUEIO
+  ESTORNO
+  CONSUMO
+}
+
+enum StatusPagamento {
+  PENDING
+  SUCCEEDED
+  FAILED
+  EXPIRED
+}
+
 model Wallet {
   id             String   @id @default(cuid())
   userId         String   @unique
@@ -179,4 +193,45 @@ model InconsistencyReport {
   job ProcessingJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@index([jobId])
+}
+
+model Transaction {
+  id            String        @id @default(cuid())
+  userId        String
+  type          TipoTransacao
+  amountMinutes Float
+  refType       String?
+  refId         String?
+  balanceAfter  Float
+  description   String?
+  createdAt     DateTime      @default(now())
+
+  @@index([userId, createdAt])
+  @@index([refType, refId])
+}
+
+model PaymentIntent {
+  id                String          @id
+  userId            String
+  amountCents       Int
+  status            StatusPagamento @default(PENDING)
+  minutesGranted    Int
+  planLabel         String
+  checkoutUrl       String
+  webhookReceivedAt DateTime?
+  webhookAttempts   Int             @default(0)
+  createdAt         DateTime        @default(now())
+  expiresAt         DateTime
+
+  @@index([userId, status])
+  @@index([status, expiresAt])
+}
+
+model WebhookAlert {
+  id              String   @id @default(cuid())
+  paymentIntentId String
+  userId          String
+  createdAt       DateTime @default(now())
+
+  @@index([userId, createdAt])
 }

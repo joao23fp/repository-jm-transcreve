@@ -22,6 +22,20 @@ export enum StatusReserva {
   REFUNDED = 'REFUNDED',
 }
 
+export enum TipoTransacao {
+  COMPRA   = 'COMPRA',
+  BLOQUEIO = 'BLOQUEIO',
+  ESTORNO  = 'ESTORNO',
+  CONSUMO  = 'CONSUMO',
+}
+
+export enum StatusPagamento {
+  PENDING   = 'PENDING',
+  SUCCEEDED = 'SUCCEEDED',
+  FAILED    = 'FAILED',
+  EXPIRED   = 'EXPIRED',
+}
+
 export enum FormatoAceito {
   MP4 = 'video/mp4',
   MKV = 'video/x-matroska',
