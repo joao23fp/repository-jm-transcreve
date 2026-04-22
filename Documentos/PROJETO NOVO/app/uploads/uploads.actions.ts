@@ -149,18 +149,23 @@ export async function confirmUpload(jobId: string) {
   await prisma.fileUpload.update({ where: { id: fileUpload.id }, data: { uploadConfirmedAt: new Date() } })
   await prisma.processingJob.update({ where: { id: jobId }, data: { currentStage: EtapaProcessamento.QUEUED } })
 
-  await inngest.send({
-    name: 'upload/confirmed',
-    data: {
-      jobId,
-      userId,
-      storageUrl: fileUpload.storagePath,
-      estimatedMinutes: fileUpload.job.estimatedMinutes,
-      promptId: fileUpload.job.promptId,
-      mimeType: fileUpload.mimeType,
-      fileName: fileUpload.fileName,
-    },
-  })
+  try {
+    await inngest.send({
+      name: 'upload/confirmed',
+      data: {
+        jobId,
+        userId,
+        storageUrl: fileUpload.storagePath,
+        estimatedMinutes: fileUpload.job.estimatedMinutes,
+        promptId: fileUpload.job.promptId,
+        mimeType: fileUpload.mimeType,
+        fileName: fileUpload.fileName,
+      },
+    })
+  } catch (err) {
+    // Inngest dev server offline — job stays QUEUED; will be picked up when server restarts
+    console.warn('[confirmUpload] inngest.send falhou (dev server offline?):', err)
+  }
 
   return { jobId, status: 'QUEUED', message: 'Processamento iniciado' }
 }
