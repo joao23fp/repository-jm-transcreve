@@ -4,6 +4,7 @@ import { processTranscription } from '@/inngest/functions/process-transcription'
 import { processAiAnalysis } from '@/inngest/functions/process-ai-analysis'
 import { reconcileCreditsFunction } from '@/inngest/functions/reconcile-credits'
 import { expirePendingUploads } from '@/inngest/functions/expire-pending-uploads'
+import { expirePaymentIntents } from '@/inngest/functions/expire-payment-intents'
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -12,5 +13,6 @@ export const { GET, POST, PUT } = serve({
     processAiAnalysis,
     reconcileCreditsFunction,
     expirePendingUploads,
+    expirePaymentIntents,
   ],
 })
