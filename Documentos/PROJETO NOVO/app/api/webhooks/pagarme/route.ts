@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { confirmPayment, expireIntent } from '@/app/billing/billing.service'
 import { StatusPagamento } from '@/lib/enums'
 import { logLgpdAccess } from '@/lib/lgpd-logger'
+import { inngest } from '@/inngest/client'
 
 const OK = NextResponse.json({ received: true })
 
@@ -62,6 +63,10 @@ export async function POST(req: NextRequest) {
       await prisma.webhookAlert.create({
         data: { paymentIntentId: orderId, userId: intent.userId },
       })
+      await inngest.send({
+        name: 'billing/webhook.escalated',
+        data: { paymentIntentId: orderId, userId: intent.userId, attempts: updated.webhookAttempts },
+      }).catch(() => null)
     }
   }
 
