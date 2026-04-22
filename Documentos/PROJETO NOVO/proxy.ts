@@ -18,6 +18,7 @@ export async function proxy(req: NextRequest) {
     '/biblioteca(.*)',
     '/dashboard(.*)',
     '/api/uploads(.*)',
+    '/api/billing(.*)',
     '/api/webhooks/clerk(.*)',
   ])
 
