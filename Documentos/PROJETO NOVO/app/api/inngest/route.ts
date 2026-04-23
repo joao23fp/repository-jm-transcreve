@@ -6,6 +6,8 @@ import { reconcileCreditsFunction } from '@/inngest/functions/reconcile-credits'
 import { expirePendingUploads } from '@/inngest/functions/expire-pending-uploads'
 import { expirePaymentIntents } from '@/inngest/functions/expire-payment-intents'
 import { requeueStuckJobs } from '@/inngest/functions/requeue-stuck-jobs'
+import { renderClip } from '@/inngest/functions/render-clip'
+import { exportClipDocument } from '@/inngest/functions/export-clip-document'
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -16,5 +18,7 @@ export const { GET, POST, PUT } = serve({
     expirePendingUploads,
     expirePaymentIntents,
     requeueStuckJobs,
+    renderClip,
+    exportClipDocument,
   ],
 })

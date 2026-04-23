@@ -59,6 +59,28 @@ export async function sendLowBalanceEmail(userId: string, threshold: number) {
   })
 }
 
+export async function sendClipReadyEmail(userId: string, clipName: string) {
+  const email = await getUserEmail(userId)
+  if (!email) return
+  await resend.emails.send({
+    from: FROM,
+    to: email,
+    subject: `Clipe pronto — ${clipName}`,
+    html: `<p>Seu clipe <strong>${clipName}</strong> foi gerado com sucesso. <a href="${process.env.NEXT_PUBLIC_APP_URL}/resultados">Ver clipes</a>.</p>`,
+  })
+}
+
+export async function sendClipErrorEmail(userId: string, clipName: string) {
+  const email = await getUserEmail(userId)
+  if (!email) return
+  await resend.emails.send({
+    from: FROM,
+    to: email,
+    subject: `Erro ao gerar clipe — ${clipName}`,
+    html: `<p>Ocorreu um erro ao gerar o clipe <strong>${clipName}</strong>. Acesse o TranscreveAdv e tente novamente.</p>`,
+  })
+}
+
 export async function sendSuccessPaymentEmail(userId: string, planLabel: string, minutesGranted: number) {
   const email = await getUserEmail(userId)
   if (!email) return

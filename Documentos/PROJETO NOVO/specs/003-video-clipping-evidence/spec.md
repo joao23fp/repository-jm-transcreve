@@ -75,7 +75,7 @@ Usuário acessa aba "Galeria de Recortes" onde vê lista de clipes gerados. Pode
 ### Edge Cases
 
 - **Seleção entre múltiplos falantes**: Clipe é gerado contendo ambos falantes; sincronismo de áudio/vídeo/legenda respeitado
-- **Falha no encoder de vídeo**: Status muda para "Erro ao gerar"; usuário vê botão "Tentar Novamente"; créditos são estornados
+- **Falha no encoder de vídeo**: Status muda para "Erro ao gerar"; usuário vê botão "Tentar Novamente"; sem estorno (clipes gratuitos na v1)
 - **Fechamento de aba durante renderização**: Renderização continua; retorno à aba mostra clipe pronto na galeria
 - **Exclusão de arquivo original**: Todos clipes vinculados marcados para exclusão em cascata (ou arquivados)
 - **Arquivo de vídeo expirado (7 dias)**: Clipes existentes permanecem; novo clipping não é possível; aviso exibido
@@ -91,7 +91,7 @@ Usuário acessa aba "Galeria de Recortes" onde vê lista de clipes gerados. Pode
 - **FR-005**: Sistema DEVE persistir metadados de clipe (nome, timestamps, informações de falante, transcrição do trecho, status)
 - **FR-006**: Sistema DEVE renderizar clipe em formato de vídeo com áudio sincronizado e legenda (opcional) integradas
 - **FR-007**: Sistema DEVE suportar exportação em 3 formatos: Vídeo, PDF (com transcrição), Word (com transcrição)
-- **FR-008**: Sistema DEVE recuperar elegantemente de falhas de encoding (retry + notificação ao usuário + estorno de créditos)
+- **FR-008**: Sistema DEVE recuperar elegantemente de falhas de encoding (até 3 retries automáticos + notificação ao usuário com botão "Tentar Novamente"; sem estorno de créditos pois clipes são gratuitos na v1)
 
 ### Key Entities
 

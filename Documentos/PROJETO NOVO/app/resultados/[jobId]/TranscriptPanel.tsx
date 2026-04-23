@@ -112,15 +112,18 @@ export default function TranscriptPanel({
                 )}
               </div>
 
-              {/* Segment text */}
+              {/* Segment text — data attributes permitem ClipSelectionMenu calcular timestamps */}
               <p
                 onClick={() => onSegmentClick(seg.startMs)}
-                style={{
-                  margin: 0, fontSize: 12, lineHeight: 1.65,
-                  color: 'var(--text)', cursor: 'pointer',
-                }}
+                style={{ margin: 0, fontSize: 12, lineHeight: 1.65, color: 'var(--text)', cursor: 'pointer' }}
               >
-                {seg.text}
+                <span
+                  data-segment-id={seg.id}
+                  data-start-ms={seg.startMs}
+                  data-end-ms={seg.endMs}
+                >
+                  {seg.text}
+                </span>
               </p>
             </div>
           </div>

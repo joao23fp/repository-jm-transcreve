@@ -227,6 +227,19 @@ model PaymentIntent {
   @@index([status, expiresAt])
 }
 
+enum StatusClipe {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum FormatoExport {
+  VIDEO
+  PDF
+  WORD
+}
+
 enum TipoPrompt {
   Sistema
   Usuario
@@ -275,6 +288,42 @@ model PromptApplication {
 
   @@index([userId, fileId])
   @@index([promptId])
+}
+
+model VideoClip {
+  id              String      @id @default(cuid())
+  userId          String
+  fileId          String
+  name            String
+  startMs         Int
+  endMs           Int
+  durationSeconds Float
+  transcriptText  String
+  status          StatusClipe @default(PENDING)
+  clipStoragePath String?
+  thumbnailPath   String?
+  errorMessage    String?
+  createdAt       DateTime    @default(now())
+  completedAt     DateTime?
+  exports         ExportJob[]
+
+  @@index([userId, fileId])
+  @@index([userId, status])
+}
+
+model ExportJob {
+  id              String        @id @default(cuid())
+  videoClipId     String
+  userId          String
+  format          FormatoExport
+  status          StatusClipe   @default(PENDING)
+  fileStoragePath String?
+  errorMessage    String?
+  createdAt       DateTime      @default(now())
+  completedAt     DateTime?
+  clip            VideoClip     @relation(fields: [videoClipId], references: [id], onDelete: Cascade)
+
+  @@index([userId, videoClipId])
 }
 
 model WebhookAlert {

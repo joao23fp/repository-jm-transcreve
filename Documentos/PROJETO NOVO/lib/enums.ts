@@ -51,6 +51,19 @@ export const MIME_TYPES_ACEITOS = Object.values(FormatoAceito) as string[]
 
 export const EXTENSOES_ACEITAS = ['.mp4', '.mkv', '.mov', '.avi', '.mp3', '.wav', '.m4a', '.ogg']
 
+export enum StatusClipe {
+  PENDING    = 'PENDING',
+  PROCESSING = 'PROCESSING',
+  COMPLETED  = 'COMPLETED',
+  FAILED     = 'FAILED',
+}
+
+export enum FormatoExport {
+  VIDEO = 'VIDEO',
+  PDF   = 'PDF',
+  WORD  = 'WORD',
+}
+
 export enum TipoPrompt {
   Sistema  = 'Sistema',
   Usuario  = 'Usuario',

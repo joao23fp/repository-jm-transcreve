@@ -48,6 +48,11 @@ export default async function JobViewerPage({ params }: { params: Promise<{ jobI
     isRenamed: sp.isRenamed,
   }))
 
+  // Data de expiração do arquivo (7 dias após upload)
+  const fileExpiresAt = job.fileUpload
+    ? new Date(job.fileUpload.createdAt.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()
+    : null
+
   return (
     <ViewerLayout
       jobId={job.id}
@@ -59,6 +64,7 @@ export default async function JobViewerPage({ params }: { params: Promise<{ jobI
       speakers={speakers}
       transcriptText={job.transcriptText ?? null}
       isCompleted={job.currentStage === EtapaProcessamento.COMPLETED}
+      fileExpiresAt={fileExpiresAt}
     />
   )
 }
