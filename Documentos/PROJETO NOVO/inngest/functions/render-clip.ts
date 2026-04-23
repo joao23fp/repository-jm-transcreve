@@ -3,7 +3,6 @@ import fs from 'fs/promises'
 import { inngest } from '@/inngest/client'
 import { prisma } from '@/lib/prisma'
 import { StatusClipe } from '@/lib/enums'
-import { cutVideoClip, extractThumbnail } from '@/lib/ffmpeg-server'
 import { IS_LOCAL_STORAGE, localStorageRead, localStorageSave } from '@/lib/storage'
 import { sendClipReadyEmail, sendClipErrorEmail } from '@/lib/email/upload-notifications'
 
@@ -60,11 +59,13 @@ export const renderClip = inngest.createFunction(
       const inputPath = `${inputTmp}${ext}`
 
       await step.run('render-clip', async () => {
+        const { cutVideoClip } = await import('@/lib/ffmpeg-server')
         await cutVideoClip(inputPath, outputTmp, startMs, endMs)
       })
 
       // Etapa 3: gerar thumbnail
       await step.run('generate-thumbnail', async () => {
+        const { extractThumbnail } = await import('@/lib/ffmpeg-server')
         const seekMs = startMs + Math.floor((endMs - startMs) / 2)
         await extractThumbnail(inputPath, thumbTmp, seekMs).catch(() => null)
       })
