@@ -227,6 +227,56 @@ model PaymentIntent {
   @@index([status, expiresAt])
 }
 
+enum TipoPrompt {
+  Sistema
+  Usuario
+}
+
+model PromptFolder {
+  id             String         @id @default(cuid())
+  userId         String
+  name           String
+  parentFolderId String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  parent         PromptFolder?  @relation("FolderHierarchy", fields: [parentFolderId], references: [id])
+  children       PromptFolder[] @relation("FolderHierarchy")
+  prompts        PromptTemplate[]
+
+  @@index([userId, parentFolderId])
+}
+
+model PromptTemplate {
+  id          String       @id @default(cuid())
+  userId      String?
+  folderId    String?
+  name        String
+  description String?
+  body        String
+  type        TipoPrompt   @default(Usuario)
+  isDeleted   Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  folder      PromptFolder? @relation(fields: [folderId], references: [id])
+  applications PromptApplication[]
+
+  @@unique([userId, folderId, name])
+  @@index([userId, type, isDeleted])
+  @@index([folderId])
+}
+
+model PromptApplication {
+  id        String         @id @default(cuid())
+  fileId    String
+  userId    String
+  promptId  String
+  appliedAt DateTime       @default(now())
+  prompt    PromptTemplate @relation(fields: [promptId], references: [id])
+
+  @@index([userId, fileId])
+  @@index([promptId])
+}
+
 model WebhookAlert {
   id              String   @id @default(cuid())
   paymentIntentId String

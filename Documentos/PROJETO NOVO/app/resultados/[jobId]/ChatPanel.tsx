@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { PromptSelector } from '@/app/biblioteca/components/PromptSelector'
 
 type Message = { role: 'user' | 'assistant'; content: string }
 
@@ -16,6 +17,8 @@ export default function ChatPanel({ jobId, lastEditedAt, onCitationClick }: Prop
   const [loading, setLoading] = useState(false)
   const [truncated, setTruncated] = useState(false)
   const [showStaleWarning, setShowStaleWarning] = useState(false)
+  const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null)
+  const [selectedPromptBody, setSelectedPromptBody] = useState<string | null>(null)
   const lastMsgTimeRef = useRef<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -43,7 +46,10 @@ export default function ChatPanel({ jobId, lastEditedAt, onCitationClick }: Prop
       const res = await fetch(`/api/jobs/${jobId}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({
+          message: text,
+          ...(selectedPromptBody && { systemPrompt: selectedPromptBody }),
+        }),
       })
 
       if (res.headers.get('X-Truncated') === '1') setTruncated(true)
@@ -187,6 +193,16 @@ export default function ChatPanel({ jobId, lastEditedAt, onCitationClick }: Prop
           )
         })}
         <div ref={bottomRef} />
+      </div>
+
+      {/* ── Prompt selector ── */}
+      <div style={{ padding: '6px 12px', borderTop: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        <span style={{ fontSize: 10.5, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>Contexto:</span>
+        <PromptSelector
+          fileId={jobId}
+          value={selectedPromptId}
+          onChange={(id, body) => { setSelectedPromptId(id); setSelectedPromptBody(body) }}
+        />
       </div>
 
       {/* ── Input ── */}

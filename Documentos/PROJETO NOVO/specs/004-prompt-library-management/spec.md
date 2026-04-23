@@ -73,11 +73,11 @@ Usuário está analisando vídeo/áudio; abre dropdown de "Contexto"; seleciona 
 
 ### Edge Cases
 
-- **Exclusão de pasta com conteúdo**: Modal de confirmação exibe: "Pasta contém X prompts. Ao excluir, todos serão removidos permanentemente. Continuar?" → Exclusão em cascata
+- **Exclusão de pasta com conteúdo**: Modal de confirmação exibe: "Pasta contém X prompts. Ao excluir, todos serão removidos da sua biblioteca. Continuar?" → Pasta removida do banco (hard delete); prompts internos marcados como `isDeleted=true` (soft delete) para preservar histórico de `PromptApplication`
 - **Tentativa de criar prompt com nome duplicado**: Sistema bloqueia e exibe: "Já existe prompt com este nome nesta pasta. Use outro nome."
 - **Prompt vazio (sem body)**: Botão Salvar desabilitado até que body seja preenchido (validação em tempo real)
 - **Falha de IA com prompt customizado**: Sistema notifica: "Erro ao processar prompt personalizado." → botão "Editar na Biblioteca"
-- **Edição de prompt enquanto é usado**: Se prompt estiver sendo aplicado a análise em outra aba, edição permite mas marca análise como "obsoleta"
+- **Edição de prompt enquanto é usado**: Edição sempre permitida; a análise em andamento continua usando a versão anterior do prompt (sem marcação de "obsoleta" — deferido para v2)
 
 ## Requirements *(mandatory)*
 

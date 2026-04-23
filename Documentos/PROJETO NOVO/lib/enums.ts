@@ -51,6 +51,11 @@ export const MIME_TYPES_ACEITOS = Object.values(FormatoAceito) as string[]
 
 export const EXTENSOES_ACEITAS = ['.mp4', '.mkv', '.mov', '.avi', '.mp3', '.wav', '.m4a', '.ogg']
 
+export enum TipoPrompt {
+  Sistema  = 'Sistema',
+  Usuario  = 'Usuario',
+}
+
 export const LIMITE_TAMANHO_BYTES = 2_147_483_648 // 2 GB
 export const LIMITE_DURACAO_SEGUNDOS = 14_400      // 4 horas
 export const MAX_ARQUIVOS_SIMULTANEOS = 5

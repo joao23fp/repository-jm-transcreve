@@ -24,6 +24,9 @@ export default async function UploadsPage() {
           <Link href="/dashboard" style={{ fontSize: 13, color: 'var(--ta-text-info)', textDecoration: 'none', fontWeight: 500 }}>
             💳 Créditos
           </Link>
+          <Link href="/biblioteca" style={{ fontSize: 13, color: 'var(--ta-text-info)', textDecoration: 'none', fontWeight: 500 }}>
+            📚 Minha Biblioteca
+          </Link>
           <Link href="/resultados" style={{ fontSize: 13, color: 'var(--ta-text-info)', textDecoration: 'none', fontWeight: 500 }}>
             Ver transcrições →
           </Link>

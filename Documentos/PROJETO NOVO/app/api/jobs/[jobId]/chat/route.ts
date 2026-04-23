@@ -23,6 +23,7 @@ export async function POST(
   const body = await req.json()
   const message = String(body.message ?? '').trim()
   if (!message) return NextResponse.json({ error: 'EMPTY_MESSAGE' }, { status: 400 })
+  const customSystemPrompt: string | null = typeof body.systemPrompt === 'string' ? body.systemPrompt : null
 
   // Build transcript context
   let transcriptContext: string
@@ -59,12 +60,11 @@ export async function POST(
 
   const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 
-  const systemPrompt = `Você é um assistente jurídico especializado em análise de audiências e depoimentos.
-Responda APENAS com base na transcrição fornecida abaixo. Cite os momentos relevantes usando o formato [MM:SS].
-Nunca invente informações que não estejam na transcrição.
+  const baseInstructions = customSystemPrompt
+    ? `${customSystemPrompt}\n\nResponda APENAS com base na transcrição fornecida abaixo. Cite os momentos relevantes usando o formato [MM:SS]. Nunca invente informações que não estejam na transcrição.`
+    : `Você é um assistente jurídico especializado em análise de audiências e depoimentos.\nResponda APENAS com base na transcrição fornecida abaixo. Cite os momentos relevantes usando o formato [MM:SS].\nNunca invente informações que não estejam na transcrição.`
 
-TRANSCRIÇÃO:
-${transcriptContext}`
+  const systemPrompt = `${baseInstructions}\n\nTRANSCRIÇÃO:\n${transcriptContext}`
 
   const groqMessages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
     { role: 'system', content: systemPrompt },
