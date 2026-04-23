@@ -16,8 +16,8 @@
 
 **Purpose**: Verificar estrutura existente e preparar diretórios para o módulo.
 
-- [ ] T001 Criar diretório `app/resultados/[jobId]/` e `app/api/jobs/[jobId]/` conforme estrutura do plan.md
-- [ ] T002 [P] Verificar variáveis de ambiente necessárias: `GROQ_API_KEY` (já configurada no Módulo 001), `DATABASE_URL`
+- [x] T001 Criar diretório `app/resultados/[jobId]/` e `app/api/jobs/[jobId]/` conforme estrutura do plan.md
+- [x] T002 [P] Verificar variáveis de ambiente necessárias: `GROQ_API_KEY` (já configurada no Módulo 001), `DATABASE_URL`
 
 ---
 
@@ -27,13 +27,13 @@
 
 **⚠️ CRÍTICO**: Nenhuma user story pode começar antes desta fase estar completa.
 
-- [ ] T003 Adicionar 4 novos modelos Prisma ao `prisma/schema.prisma`: `TranscriptSegment`, `SpeakerProfile`, `ChatMessage`, `InconsistencyReport` (conforme data-model.md)
-- [ ] T004 Adicionar relações ao modelo `ProcessingJob` existente em `prisma/schema.prisma`: `segments`, `speakers`, `chatMessages`, `inconsistencyReports`
-- [ ] T005 Gerar e aplicar migration: `npx prisma migrate dev --name add-module-002-tables`
-- [ ] T006 [P] Atualizar `inngest/functions/process-transcription.ts`: adicionar `timestamp_granularities: ['word', 'segment']` na chamada do Groq Whisper
-- [ ] T007 Atualizar `inngest/functions/process-transcription.ts`: adicionar step `save-transcript-segments` que persiste rows em `TranscriptSegment` a partir de `result.segments` + `result.words` (mapeamento: `segment.start * 1000 → startMs`, `segment.end * 1000 → endMs`, words filtrados por range → `wordTimestamps`)
-- [ ] T008 Atualizar `inngest/functions/process-transcription.ts`: criar `SpeakerProfile` placeholder ("Pessoa A") apenas quando segmentos são salvos (não criar falantes automaticamente — MVP manual)
-- [ ] T009 [P] Criar `app/api/jobs/[jobId]/transcript/route.ts`: `GET` que retorna segmentos + speakers + videoUrl (contrato: api-contracts.md#GET-transcript)
+- [x] T003 Adicionar 4 novos modelos Prisma ao `prisma/schema.prisma`: `TranscriptSegment`, `SpeakerProfile`, `ChatMessage`, `InconsistencyReport` (conforme data-model.md)
+- [x] T004 Adicionar relações ao modelo `ProcessingJob` existente em `prisma/schema.prisma`: `segments`, `speakers`, `chatMessages`, `inconsistencyReports`
+- [x] T005 Gerar e aplicar migration: `npx prisma migrate dev --name add-module-002-tables`
+- [x] T006 [P] Atualizar `inngest/functions/process-transcription.ts`: adicionar `timestamp_granularities: ['word', 'segment']` na chamada do Groq Whisper
+- [x] T007 Atualizar `inngest/functions/process-transcription.ts`: adicionar step `save-transcript-segments` que persiste rows em `TranscriptSegment` a partir de `result.segments` + `result.words` (mapeamento: `segment.start * 1000 → startMs`, `segment.end * 1000 → endMs`, words filtrados por range → `wordTimestamps`)
+- [x] T008 Atualizar `inngest/functions/process-transcription.ts`: criar `SpeakerProfile` placeholder ("Pessoa A") apenas quando segmentos são salvos (não criar falantes automaticamente — MVP manual)
+- [x] T009 [P] Criar `app/api/jobs/[jobId]/transcript/route.ts`: `GET` que retorna segmentos + speakers + videoUrl (contrato: api-contracts.md#GET-transcript)
 
 **Checkpoint**: Após processar um novo upload, verificar via SQL que `TranscriptSegment` rows existem com `startMs`, `endMs`, `wordTimestamps` preenchidos.
 
@@ -47,11 +47,11 @@
 
 ### Implementação US1
 
-- [ ] T010 [P] [US1] Criar `app/resultados/[jobId]/page.tsx`: Server Component que busca job + segmentos via Prisma e passa como props para `ViewerLayout`
-- [ ] T011 [P] [US1] Criar `app/resultados/[jobId]/ViewerLayout.tsx`: Client Component raiz com estado compartilhado `currentMs` e `seekRef` (conforme contratos UI do api-contracts.md)
-- [ ] T012 [P] [US1] Criar `app/resultados/[jobId]/VideoPlayer.tsx`: Client Component com `<video>` nativo + `useRef`, `onTimeUpdate` (dispara `onTimeUpdate(currentTime * 1000)`), `seekToMs(ms)` via `seekRef` (ref exposto ao pai)
-- [ ] T013 [US1] Criar `app/resultados/[jobId]/TranscriptPanel.tsx`: Client Component que renderiza lista de segmentos, highlight dinâmico baseado em `currentMs` (segmento ativo = `startMs ≤ currentMs < endMs`), e `onSegmentClick` que chama `seekRef.current.seekToMs(startMs)`
-- [ ] T014 [US1] Atualizar `app/resultados/page.tsx`: adicionar link para `/resultados/[jobId]` em cada job com status `COMPLETED`
+- [x] T010 [P] [US1] Criar `app/resultados/[jobId]/page.tsx`: Server Component que busca job + segmentos via Prisma e passa como props para `ViewerLayout`
+- [x] T011 [P] [US1] Criar `app/resultados/[jobId]/ViewerLayout.tsx`: Client Component raiz com estado compartilhado `currentMs` e `seekRef` (conforme contratos UI do api-contracts.md)
+- [x] T012 [P] [US1] Criar `app/resultados/[jobId]/VideoPlayer.tsx`: Client Component com `<video>` nativo + `useRef`, `onTimeUpdate` (dispara `onTimeUpdate(currentTime * 1000)`), `seekToMs(ms)` via `seekRef` (ref exposto ao pai)
+- [x] T013 [US1] Criar `app/resultados/[jobId]/TranscriptPanel.tsx`: Client Component que renderiza lista de segmentos, highlight dinâmico baseado em `currentMs` (segmento ativo = `startMs ≤ currentMs < endMs`), e `onSegmentClick` que chama `seekRef.current.seekToMs(startMs)`
+- [x] T014 [US1] Atualizar `app/resultados/page.tsx`: adicionar link para `/resultados/[jobId]` em cada job com status `COMPLETED`
 
 **Checkpoint**: US1 funcional e testável independentemente via quickstart.md §3–§4.
 
@@ -65,10 +65,10 @@
 
 ### Implementação US2
 
-- [ ] T015 [P] [US2] Criar `app/api/jobs/[jobId]/speakers/[speakerId]/route.ts`: `PUT` que atualiza `SpeakerProfile.displayName` + seta `isRenamed: true` + retorna `affectedSegments` (contrato: api-contracts.md#PUT-speakers)
-- [ ] T016 [P] [US2] Criar `app/api/jobs/[jobId]/segments/[segmentId]/route.ts`: `PUT` para editar `editedText` de um segmento (contrato: api-contracts.md#PUT-segments); incluir campo `lastEditedAt: DateTime` na resposta para o cliente detectar invalidação do chat (FR-005)
-- [ ] T017 [US2] Criar `app/resultados/[jobId]/SpeakerManager.tsx`: Client Component com dropdown/input para atribuir falante a segmento; invoca `PUT /api/jobs/[jobId]/speakers/[speakerId]`; atualiza state local otimisticamente
-- [ ] T018 [US2] Integrar `SpeakerManager` no `TranscriptPanel.tsx`: ao clicar em nome de falante de um segmento, abrir `SpeakerManager` inline; `onSpeakerAssign(segmentId, speakerId)` atualiza lista de segmentos no state
+- [x] T015 [P] [US2] Criar `app/api/jobs/[jobId]/speakers/[speakerId]/route.ts`: `PUT` que atualiza `SpeakerProfile.displayName` + seta `isRenamed: true` + retorna `affectedSegments` (contrato: api-contracts.md#PUT-speakers)
+- [x] T016 [P] [US2] Criar `app/api/jobs/[jobId]/segments/[segmentId]/route.ts`: `PUT` para editar `editedText` de um segmento (contrato: api-contracts.md#PUT-segments); incluir campo `lastEditedAt: DateTime` na resposta para o cliente detectar invalidação do chat (FR-005)
+- [x] T017 [US2] Criar `app/resultados/[jobId]/SpeakerManager.tsx`: Client Component com dropdown/input para atribuir falante a segmento; invoca `PUT /api/jobs/[jobId]/speakers/[speakerId]`; atualiza state local otimisticamente
+- [x] T018 [US2] Integrar `SpeakerManager` no `TranscriptPanel.tsx`: ao clicar em nome de falante de um segmento, abrir `SpeakerManager` inline; `onSpeakerAssign(segmentId, speakerId)` atualiza lista de segmentos no state
 
 **Checkpoint**: US2 funcional e testável via quickstart.md §7.
 
@@ -82,11 +82,11 @@
 
 ### Implementação US3
 
-- [ ] T019 [P] [US3] Criar `app/api/jobs/[jobId]/chat/route.ts`: `POST` com streaming SSE; carrega segmentos do job; trunca transcrição se >80k chars (com aviso); envia para `groq.chat.completions.create({model: 'llama-3.3-70b-versatile', stream: true})`; retorna `new Response(stream, {'Content-Type': 'text/event-stream'})` (contrato: api-contracts.md#POST-chat)
-- [ ] T020 [US3] Criar `app/resultados/[jobId]/ChatPanel.tsx`: Client Component com input de mensagem, lista de mensagens, fetch SSE para `/api/jobs/[jobId]/chat`, renderização de tokens em streaming, e `onCitationClick(segmentId, startMs)` que chama `seekRef` (contrato UI: api-contracts.md#ChatPanel)
-- [ ] T021 [US3] Persistir `ChatMessage` no banco após cada troca (user + assistant) em `app/api/jobs/[jobId]/chat/route.ts`
-- [ ] T022 [US3] Integrar `ChatPanel` no `ViewerLayout.tsx`: passar `onCitationClick` que chama `seekRef.current.seekToMs(startMs)`
-- [ ] T023b [US3] Implementar aviso de invalidação de chat em `ChatPanel.tsx`: se `lastEditedAt` (recebido via `ViewerLayout`) for posterior ao `createdAt` da última mensagem, exibir banner "Transcrição editada — o chat pode estar desatualizado. Reanalisar?" com botão para limpar histórico (FR-005)
+- [x] T019 [P] [US3] Criar `app/api/jobs/[jobId]/chat/route.ts`: `POST` com streaming SSE; carrega segmentos do job; trunca transcrição se >80k chars (com aviso); envia para `groq.chat.completions.create({model: 'llama-3.3-70b-versatile', stream: true})`; retorna `new Response(stream, {'Content-Type': 'text/event-stream'})` (contrato: api-contracts.md#POST-chat)
+- [x] T020 [US3] Criar `app/resultados/[jobId]/ChatPanel.tsx`: Client Component com input de mensagem, lista de mensagens, fetch SSE para `/api/jobs/[jobId]/chat`, renderização de tokens em streaming, e `onCitationClick(segmentId, startMs)` que chama `seekRef` (contrato UI: api-contracts.md#ChatPanel)
+- [x] T021 [US3] Persistir `ChatMessage` no banco após cada troca (user + assistant) em `app/api/jobs/[jobId]/chat/route.ts`
+- [x] T022 [US3] Integrar `ChatPanel` no `ViewerLayout.tsx`: passar `onCitationClick` que chama `seekRef.current.seekToMs(startMs)`
+- [x] T023b [US3] Implementar aviso de invalidação de chat em `ChatPanel.tsx`: se `lastEditedAt` (recebido via `ViewerLayout`) for posterior ao `createdAt` da última mensagem, exibir banner "Transcrição editada — o chat pode estar desatualizado. Reanalisar?" com botão para limpar histórico (FR-005)
 
 **Checkpoint**: US3 funcional e testável via quickstart.md §5.
 
@@ -100,9 +100,9 @@
 
 ### Implementação US4
 
-- [ ] T023 [P] [US4] Criar `app/api/jobs/[jobId]/contradictions/route.ts`: `POST` síncrono; carrega segmentos; envia transcrição ao LLaMA com prompt para detectar inconsistências em JSON estruturado; persiste `InconsistencyReport` rows; retorna lista formatada (contrato: api-contracts.md#POST-contradictions)
-- [ ] T024 [US4] Criar `app/resultados/[jobId]/ContradictionsPanel.tsx`: Client Component com botão "Detectar Contradições", estado de loading, lista de contradições com dois links clicáveis por item (primarySegmentId + conflictingSegmentId)
-- [ ] T025 [US4] Integrar `ContradictionsPanel` no `ViewerLayout.tsx`: links de contradição chamam `seekRef.current.seekToMs(startMs)` para cada segmento
+- [x] T023 [P] [US4] Criar `app/api/jobs/[jobId]/contradictions/route.ts`: `POST` síncrono; carrega segmentos; envia transcrição ao LLaMA com prompt para detectar inconsistências em JSON estruturado; persiste `InconsistencyReport` rows; retorna lista formatada (contrato: api-contracts.md#POST-contradictions)
+- [x] T024 [US4] Criar `app/resultados/[jobId]/ContradictionsPanel.tsx`: Client Component com botão "Detectar Contradições", estado de loading, lista de contradições com dois links clicáveis por item (primarySegmentId + conflictingSegmentId)
+- [x] T025 [US4] Integrar `ContradictionsPanel` no `ViewerLayout.tsx`: links de contradição chamam `seekRef.current.seekToMs(startMs)` para cada segmento
 
 **Checkpoint**: US4 funcional e testável via quickstart.md §6.
 
@@ -112,12 +112,12 @@
 
 **Purpose**: Fallbacks, edge cases e validação do golden path completo.
 
-- [ ] T026 [P] Implementar fallback em `app/resultados/[jobId]/page.tsx`: se job sem `TranscriptSegment` rows (upload pré-migration), exibir `transcriptText` plano
-- [ ] T027 [P] Suporte a arquivo sem vídeo (OGG/MP3) em `VideoPlayer.tsx`: renderizar `<audio>` em vez de `<video>` baseado em `mimeType`
-- [ ] T028 [P] Adicionar aviso de truncamento ao chat em `ChatPanel.tsx` quando transcrição >80k chars
-- [ ] T029 Retornar 404 (não 403) em todos endpoints quando job pertence a outro usuário — revisar `transcript/route.ts`, `chat/route.ts`, `contradictions/route.ts`, `speakers/route.ts`, `segments/route.ts`
-- [ ] T030 Validar golden path completo seguindo `quickstart.md`: upload → segmentos salvos → viewer → sync → speaker → chat → contradições; para SC-004, validar detector com pelo menos 5 contradições-exemplo conhecidas (ex: depoimento com datas inconsistentes, afirmações opostas sobre o mesmo fato) e confirmar que ≥4 são detectadas (≥80%)
-- [ ] T031 [P] Aplicar `lgpd-logger` wrapper nas 5 rotas `/api/jobs/[jobId]/`: `transcript/route.ts`, `chat/route.ts`, `contradictions/route.ts`, `speakers/[speakerId]/route.ts`, `segments/[segmentId]/route.ts` — reutilizar o middleware já criado em `lib/lgpd-logger.ts` (Módulo 001), registrando `userId`, `action`, `resourceId (jobId)`, `timestamp` (FR Constitution Princípio II — LGPD 90 dias)
+- [x] T026 [P] Implementar fallback em `app/resultados/[jobId]/page.tsx`: se job sem `TranscriptSegment` rows (upload pré-migration), exibir `transcriptText` plano
+- [x] T027 [P] Suporte a arquivo sem vídeo (OGG/MP3) em `VideoPlayer.tsx`: renderizar `<audio>` em vez de `<video>` baseado em `mimeType`
+- [x] T028 [P] Adicionar aviso de truncamento ao chat em `ChatPanel.tsx` quando transcrição >80k chars
+- [x] T029 Retornar 404 (não 403) em todos endpoints quando job pertence a outro usuário — revisar `transcript/route.ts`, `chat/route.ts`, `contradictions/route.ts`, `speakers/route.ts`, `segments/route.ts`
+- [x] T030 Validar golden path completo seguindo `quickstart.md`: upload → segmentos salvos → viewer → sync → speaker → chat → contradições; para SC-004, validar detector com pelo menos 5 contradições-exemplo conhecidas (ex: depoimento com datas inconsistentes, afirmações opostas sobre o mesmo fato) e confirmar que ≥4 são detectadas (≥80%)
+- [x] T031 [P] Aplicar `lgpd-logger` wrapper nas 5 rotas `/api/jobs/[jobId]/`: `transcript/route.ts`, `chat/route.ts`, `contradictions/route.ts`, `speakers/[speakerId]/route.ts`, `segments/[segmentId]/route.ts` — reutilizar o middleware já criado em `lib/lgpd-logger.ts` (Módulo 001), registrando `userId`, `action`, `resourceId (jobId)`, `timestamp` (FR Constitution Princípio II — LGPD 90 dias)
 
 ---
 
