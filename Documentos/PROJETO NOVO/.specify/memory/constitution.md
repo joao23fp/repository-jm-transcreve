@@ -113,7 +113,7 @@ without affecting the entire system.
 - MUST: Payment attempts (Pagar.me) are tracked as PaymentIntent entities with status
   (Pending/Success/Failed/Expired); unconfirmed intents expire after 24 hours.
 - MUST: All transactions are logged and reconcilable via the Admin Dashboard.
-- MUST: Cobrança recorrente com período de graça de 3 dias em caso de falha no cartão.
+- MUST: Créditos são adquiridos em pacotes avulsos (99 min, 199 min, 499 min); sem recorrência mensal ou expiração de saldo. Cobrança recorrente com assinaturas é roadmap futuro (não implementado na v1).
 
 **Rationale**: Legal professionals are cost-conscious and must justify software expenses to clients.
 Transparent accounting builds trust and prevents billing disputes.
@@ -201,8 +201,7 @@ O Módulo 002 adota identificação **manual** de falantes:
 - **Checkout Flow**: Redirect para Pagar.me. Usuária retorna ao Dashboard com PaymentIntent status.
 - **Webhook Reconciliation**: Credit addition is atomic (no duplicate charges) and completes
   within 30 seconds of webhook confirmation.
-- **Falha de cobrança**: Período de graça de 3 dias; Pagar.me tenta novamente em 1, 2 e 3 dias;
-  e-mail de aviso a cada tentativa; acesso suspenso somente após esgotamento da graça.
+- **Modelo de cobrança**: Pacotes avulsos de créditos — sem recorrência na v1. Assinaturas são roadmap futuro.
 - **Tiered Pricing**: Pacotes de créditos em minutos (ex: 99 min, 199 min, 499 min); sem freemium.
 - **Compliance**: All transactions logged; billing records exportable for accounting.
 

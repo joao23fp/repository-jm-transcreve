@@ -106,7 +106,7 @@
 - [x] T025 [P] Adicionar link "Dashboard" para `/dashboard` no header/navegação principal da aplicação — verificar se existe componente de navegação compartilhado ou adicionar em `app/layout.tsx`
 - [x] T026 [P] Escrever testes Vitest em `__tests__/billing/billing.service.test.ts`: (1) validação HMAC do webhook — assinatura válida passa, inválida retorna 401; (2) idempotência de PaymentIntent — segundo POST retorna 409; (3) `createTransaction` atômica — se Wallet update falhar, Transaction não é criada
 - [x] T028 [P] Implementar escalação de falha de webhook em `app/api/webhooks/pagarme/route.ts`: adicionar campo `webhookAttempts Int @default(0)` ao model `PaymentIntent` no `prisma/schema.prisma` (+ migration); no handler, incrementar `webhookAttempts` a cada chamada com evento válido que não resulte em SUCCEEDED; se `webhookAttempts >= 3` e status ainda PENDING, criar registro em tabela `WebhookAlert { id, paymentIntentId, userId, createdAt }` via Prisma e emitir Inngest event `billing/webhook.escalated` para revisão manual — previne pagamentos perdidos (Constitution Princípio II MUST)
-- [ ] T027 Validar Cenários 1–8 do `specs/005-admin-billing-dashboard/quickstart.md` em ambiente local com Pagar.me sandbox + Inngest dev server; confirmar SC-001 (saldo nunca negativo), SC-002 (atualização ≤30s), SC-003 (reconciliação correta), SC-004 (ciclo compra ≤5 min)
+- [ ] T027 ⏳ AGUARDA SANDBOX — Validar Cenários 1–8 do `specs/005-admin-billing-dashboard/quickstart.md` com Pagar.me sandbox configurado (requer `PAGARME_API_KEY` e `PAGARME_WEBHOOK_SECRET` reais no `.env`). Passos: (1) criar conta sandbox em pagar.me, (2) configurar variáveis de ambiente, (3) executar cada cenário do quickstart.md, (4) confirmar SC-001–SC-004
 
 ---
 
