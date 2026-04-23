@@ -6,9 +6,10 @@ import TranscriptPanel from './TranscriptPanel'
 import ChatPanel from './ChatPanel'
 import ContradictionsPanel from './ContradictionsPanel'
 import VideoPlayer from './VideoPlayer'
-import { ClipSelectionMenu, type SelectionData } from '@/app/clips/components/ClipSelectionMenu'
-import { ClipNameModal } from '@/app/clips/components/ClipNameModal'
-import { ClipGallery } from '@/app/clips/components/ClipGallery'
+// Módulo 003 (clipes) — integração pausada, retomar depois
+// import { ClipSelectionMenu, type SelectionData } from '@/app/clips/components/ClipSelectionMenu'
+// import { ClipNameModal } from '@/app/clips/components/ClipNameModal'
+// import { ClipGallery } from '@/app/clips/components/ClipGallery'
 
 type Segment = {
   id: string
@@ -50,11 +51,11 @@ export default function ViewerLayout({
   const [topHeight, setTopHeight] = useState(DEFAULT_TOP)
   const [dragging, setDragging] = useState(false)
   const dragRef = useRef({ startY: 0, startH: 0 })
-  const [activeTab, setActiveTab] = useState<'chat' | 'clips'>('chat')
-  const [clipSelection, setClipSelection] = useState<SelectionData | null>(null)
-  const [clipModalOpen, setClipModalOpen] = useState(false)
-  const [lastCreatedClipId, setLastCreatedClipId] = useState<string | null>(null)
-  const fileExpired = fileExpiresAt ? new Date(fileExpiresAt) < new Date() : false
+  // const [activeTab, setActiveTab] = useState<'chat' | 'clips'>('chat')
+  // const [clipSelection, setClipSelection] = useState<SelectionData | null>(null)
+  // const [clipModalOpen, setClipModalOpen] = useState(false)
+  // const [lastCreatedClipId, setLastCreatedClipId] = useState<string | null>(null)
+  // const fileExpired = fileExpiresAt ? new Date(fileExpiresAt) < new Date() : false
 
   const onDividerMouseDown = useCallback((e: React.MouseEvent) => {
     dragRef.current = { startY: e.clientY, startH: topHeight }
@@ -164,7 +165,7 @@ export default function ViewerLayout({
         </div>
 
         {/* Transcript column */}
-        <div style={{ flex: 1, overflow: 'hidden', background: 'var(--surface)', position: 'relative' }} data-transcript-area>
+        <div style={{ flex: 1, overflow: 'hidden', background: 'var(--surface)', position: 'relative' }}>
           <TranscriptPanel
             jobId={jobId}
             segments={segments}
@@ -172,10 +173,6 @@ export default function ViewerLayout({
             currentMs={currentMs}
             onSegmentClick={seekToMs}
             fallbackText={transcriptText}
-          />
-          <ClipSelectionMenu
-            onValidSelection={(data) => { setClipSelection(data); setClipModalOpen(true) }}
-            fileExpired={fileExpired}
           />
         </div>
       </div>
@@ -207,34 +204,9 @@ export default function ViewerLayout({
       {/* ── Bottom: tabs (chat / clipes) + contradictions ── */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', background: 'var(--surface)' }}>
 
-        {/* Left panel com abas Chat / Clipes */}
+        {/* Chat */}
         <div style={{ flex: 1, overflow: 'hidden', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
-          {/* Abas */}
-          <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-            {(['chat', 'clips'] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                style={{
-                  padding: '0 16px', height: 38, fontSize: 11, fontWeight: 600,
-                  textTransform: 'uppercase', letterSpacing: '0.05em',
-                  border: 'none', background: 'none', cursor: 'pointer',
-                  color: activeTab === tab ? 'var(--accent)' : 'var(--text-3)',
-                  borderBottom: activeTab === tab ? '2px solid var(--accent)' : '2px solid transparent',
-                }}
-              >
-                {tab === 'chat' ? '● Chat' : '✂️ Clipes'}
-              </button>
-            ))}
-          </div>
-
-          {activeTab === 'chat' ? (
-            <ChatPanel jobId={jobId} lastEditedAt={lastEditedAt} onCitationClick={seekToMs} />
-          ) : (
-            <div style={{ flex: 1, overflow: 'auto', padding: '1rem' }}>
-              <ClipGallery fileId={jobId} newClipId={lastCreatedClipId} />
-            </div>
-          )}
+          <ChatPanel jobId={jobId} lastEditedAt={lastEditedAt} onCitationClick={seekToMs} />
         </div>
 
         {/* Contradictions */}
@@ -243,19 +215,6 @@ export default function ViewerLayout({
         </div>
       </div>
 
-      {/* Modal de nomeação de clipe */}
-      <ClipNameModal
-        open={clipModalOpen}
-        selection={clipSelection}
-        fileId={jobId}
-        onClose={() => { setClipModalOpen(false); setClipSelection(null) }}
-        onCreated={(clipId) => {
-          setLastCreatedClipId(clipId)
-          setClipModalOpen(false)
-          setClipSelection(null)
-          setActiveTab('clips')
-        }}
-      />
 
     </div>
   )
