@@ -2,15 +2,13 @@
 
 import { useRef, useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, Clock } from 'lucide-react'
+import { ChevronLeft, Clock, FileAudio, FileVideo, Mic } from 'lucide-react'
+import { usePathname } from 'next/navigation'
 import TranscriptPanel from './TranscriptPanel'
 import ChatPanel from './ChatPanel'
 import ContradictionsPanel from './ContradictionsPanel'
 import VideoPlayer from './VideoPlayer'
-// Módulo 003 (clipes) — integração pausada, retomar depois
-// import { ClipSelectionMenu, type SelectionData } from '@/app/clips/components/ClipSelectionMenu'
-// import { ClipNameModal } from '@/app/clips/components/ClipNameModal'
-// import { ClipGallery } from '@/app/clips/components/ClipGallery'
+import { cn } from '@/lib/utils'
 
 type Segment = {
   id: string
@@ -39,9 +37,9 @@ type Props = {
   fileExpiresAt: string | null
 }
 
-const MIN_TOP = 120
-const MAX_TOP = 560
-const DEFAULT_TOP = 240
+const MIN_TOP = 140
+const MAX_TOP = 580
+const DEFAULT_TOP = 260
 
 export default function ViewerLayout({
   jobId, fileName, isAudio, videoUrl,
@@ -52,11 +50,6 @@ export default function ViewerLayout({
   const [topHeight, setTopHeight] = useState(DEFAULT_TOP)
   const [dragging, setDragging] = useState(false)
   const dragRef = useRef({ startY: 0, startH: 0 })
-  // const [activeTab, setActiveTab] = useState<'chat' | 'clips'>('chat')
-  // const [clipSelection, setClipSelection] = useState<SelectionData | null>(null)
-  // const [clipModalOpen, setClipModalOpen] = useState(false)
-  // const [lastCreatedClipId, setLastCreatedClipId] = useState<string | null>(null)
-  // const fileExpired = fileExpiresAt ? new Date(fileExpiresAt) < new Date() : false
 
   const onDividerMouseDown = useCallback((e: React.MouseEvent) => {
     dragRef.current = { startY: e.clientY, startH: topHeight }
@@ -66,17 +59,14 @@ export default function ViewerLayout({
 
   useEffect(() => {
     if (!dragging) return
-    function onMove(e: MouseEvent) {
+    const onMove = (e: MouseEvent) => {
       const delta = e.clientY - dragRef.current.startY
       setTopHeight(Math.max(MIN_TOP, Math.min(MAX_TOP, dragRef.current.startH + delta)))
     }
-    function onUp() { setDragging(false) }
+    const onUp = () => setDragging(false)
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-    return () => {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-    }
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
   }, [dragging])
 
   const lastEditedAt = segments.reduce<string | null>((max, s) => {
@@ -91,107 +81,129 @@ export default function ViewerLayout({
 
   const durationMs = segments.length > 0 ? Math.max(...segments.map(s => s.endMs)) : 0
   const durationLabel = durationMs > 0 ? formatDuration(durationMs) : null
+  const FileIcon = isAudio ? FileAudio : FileVideo
 
   return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)',
-      userSelect: dragging ? 'none' : undefined,
-      cursor: dragging ? 'row-resize' : undefined,
-    }}>
+    <div className={cn('flex h-screen overflow-hidden', dragging && 'select-none cursor-row-resize')}
+      style={{ background: 'var(--background)' }}>
 
-      {/* ── Header ── */}
-      <header className="flex items-center gap-2 px-3 h-11 border-b border-border/50 bg-card/80 backdrop-blur-sm shrink-0">
-        <Link href="/resultados" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0 px-1.5 py-1 rounded hover:bg-muted">
-          <ChevronLeft className="w-3.5 h-3.5" />
-          Transcrições
-        </Link>
-        <span className="text-border">·</span>
-        <span className="flex-1 min-w-0 text-xs font-medium truncate font-mono tracking-tight">
-          {fileName}
-        </span>
-        {durationLabel && (
-          <span className="flex items-center gap-1.5 text-xs text-muted-foreground border border-border/50 rounded px-2 py-0.5 font-mono tabular-nums shrink-0">
-            <Clock className="w-3 h-3" />
-            {durationLabel}
-          </span>
-        )}
-      </header>
+      {/* ── Sidebar mínima ── */}
+      <aside className="w-[188px] shrink-0 flex flex-col border-r border-border/50 h-full"
+        style={{ background: 'var(--sidebar)' }}>
 
-      {/* ── Top: player + transcript (resizable) ── */}
-      <div style={{ display: 'flex', flexShrink: 0, height: topHeight, overflow: 'hidden' }}>
+        {/* Logo */}
+        <div className="flex items-center gap-2.5 px-5 h-14 border-b border-border/30">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+            style={{ background: 'linear-gradient(135deg, #e8e8ed 0%, #aeaeb2 100%)' }}>
+            <Mic className="w-4 h-4 text-black" />
+          </div>
+          <span className="text-sm font-semibold tracking-tight truncate">TranscreveAdv</span>
+        </div>
 
-        {/* Player column */}
-        <div style={{
-          flex: '0 0 50%', background: '#000', padding: 10,
-          borderRight: '1px solid var(--border)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          {videoUrl ? (
-            <VideoPlayer
-              fileUrl={videoUrl}
-              isAudio={isAudio}
-              onTimeUpdate={setCurrentMs}
-              mediaRef={mediaRef}
-            />
-          ) : (
-            <div style={{ fontSize: 12, color: '#4a4a4a', textAlign: 'center' }}>
-              {isCompleted ? 'Arquivo de mídia não disponível.' : 'Processando...'}
+        {/* Arquivo atual */}
+        <div className="flex-1 px-3 py-4 overflow-hidden">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-3 px-2">
+            Transcrição atual
+          </p>
+          <div className="rounded-lg px-3 py-2.5 border border-border/50 bg-primary/5">
+            <div className="flex items-center gap-2 mb-1">
+              <FileIcon className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--primary)' }} />
+              <span className="text-xs font-medium truncate" style={{ color: 'var(--primary)' }}>
+                {fileName}
+              </span>
             </div>
+            {durationLabel && (
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-mono">
+                <Clock className="w-3 h-3" />
+                {durationLabel}
+              </div>
+            )}
+          </div>
+
+          <Link
+            href="/resultados"
+            className="flex items-center gap-2 mt-4 px-3 py-2 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+            Voltar para biblioteca
+          </Link>
+        </div>
+      </aside>
+
+      {/* ── Conteúdo principal ── */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+
+        {/* ── Top: player + transcrição ── */}
+        <div className="flex shrink-0 overflow-hidden border-b border-border/50" style={{ height: topHeight }}>
+
+          {/* Player */}
+          <div className="flex-none w-1/2 flex items-center justify-center border-r border-border/50"
+            style={{ background: '#050709' }}>
+            {videoUrl ? (
+              <VideoPlayer
+                fileUrl={videoUrl}
+                isAudio={isAudio}
+                onTimeUpdate={setCurrentMs}
+                mediaRef={mediaRef}
+              />
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {isCompleted ? 'Arquivo de mídia não disponível.' : 'Processando…'}
+              </p>
+            )}
+          </div>
+
+          {/* Transcrição */}
+          <div className="flex-1 overflow-hidden" style={{ background: 'var(--card)' }}>
+            <TranscriptPanel
+              jobId={jobId}
+              segments={segments}
+              speakers={speakers}
+              currentMs={currentMs}
+              onSegmentClick={seekToMs}
+              fallbackText={transcriptText}
+            />
+          </div>
+        </div>
+
+        {/* ── Divisor arrastável ── */}
+        <div
+          onMouseDown={onDividerMouseDown}
+          className={cn(
+            'h-2 shrink-0 flex items-center justify-center cursor-row-resize transition-colors z-10',
+            'border-t border-b border-border/30',
+            dragging ? 'bg-primary/10' : 'bg-background hover:bg-muted/30'
           )}
+        >
+          <div className="flex gap-1">
+            {[0, 1, 2, 3, 4].map(i => (
+              <span key={i} className={cn(
+                'w-0.5 h-0.5 rounded-full transition-colors',
+                dragging ? 'bg-primary' : 'bg-border'
+              )} />
+            ))}
+          </div>
         </div>
 
-        {/* Transcript column */}
-        <div style={{ flex: 1, overflow: 'hidden', background: 'var(--surface)', position: 'relative' }}>
-          <TranscriptPanel
-            jobId={jobId}
-            segments={segments}
-            speakers={speakers}
-            currentMs={currentMs}
-            onSegmentClick={seekToMs}
-            fallbackText={transcriptText}
-          />
-        </div>
-      </div>
+        {/* ── Bottom: chat + contradições ── */}
+        <div className="flex flex-1 overflow-hidden">
 
-      {/* ── Draggable divider ── */}
-      <div
-        onMouseDown={onDividerMouseDown}
-        style={{
-          height: 8, flexShrink: 0, cursor: 'row-resize',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: dragging ? 'var(--surface-2)' : 'var(--bg)',
-          borderTop: '1px solid var(--border)',
-          borderBottom: '1px solid var(--border)',
-          transition: 'background .1s',
-          zIndex: 10,
-        }}
-      >
-        <div style={{ display: 'flex', gap: 3 }}>
-          {[0, 1, 2, 3, 4].map((i) => (
-            <span key={i} style={{
-              width: 3, height: 3, borderRadius: '50%',
-              background: dragging ? 'var(--text-3)' : 'var(--border-3)',
-              transition: 'background .1s',
-            }} />
-          ))}
+          {/* Chat */}
+          <div className="flex-1 overflow-hidden border-r border-border/50 flex flex-col"
+            style={{ background: 'var(--card)' }}>
+            <ChatPanel
+              jobId={jobId}
+              lastEditedAt={lastEditedAt}
+              onCitationClick={seekToMs}
+            />
+          </div>
+
+          {/* Contradições */}
+          <div className="flex-1 overflow-hidden flex flex-col" style={{ background: 'var(--card)' }}>
+            <ContradictionsPanel jobId={jobId} onSeek={seekToMs} />
+          </div>
         </div>
       </div>
-
-      {/* ── Bottom: tabs (chat / clipes) + contradictions ── */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', background: 'var(--surface)' }}>
-
-        {/* Chat */}
-        <div style={{ flex: 1, overflow: 'hidden', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
-          <ChatPanel jobId={jobId} lastEditedAt={lastEditedAt} onCitationClick={seekToMs} />
-        </div>
-
-        {/* Contradictions */}
-        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <ContradictionsPanel jobId={jobId} onSeek={seekToMs} />
-        </div>
-      </div>
-
-
     </div>
   )
 }

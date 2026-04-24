@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { MessageCircle, Send } from 'lucide-react'
 import { PromptSelector } from '@/app/biblioteca/components/PromptSelector'
 
 type Message = { role: 'user' | 'assistant'; content: string }
@@ -93,45 +94,25 @@ export default function ChatPanel({ jobId, lastEditedAt, onCitationClick }: Prop
   const msgCount = messages.filter(m => m.role === 'user').length
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--surface)' }}>
+    <div className="flex flex-col h-full">
 
-      {/* ── Panel header ── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 14px', height: 38,
-        borderBottom: '1px solid var(--border)',
-        flexShrink: 0, background: 'rgba(0,0,0,.15)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <span style={{
-            width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-            background: 'var(--accent)',
-            boxShadow: '0 0 6px rgba(79,140,255,.5)',
-          }} />
-          <span style={{
-            fontSize: 11, fontWeight: 600, color: 'var(--text)',
-            textTransform: 'uppercase', letterSpacing: '0.05em',
-          }}>Chat</span>
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 h-10 border-b border-border/50 shrink-0"
+        style={{ background: 'rgba(0,0,0,0.2)' }}>
+        <div className="flex items-center gap-2">
+          <MessageCircle className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-xs font-semibold uppercase tracking-wider text-foreground">Chat</span>
         </div>
         {msgCount > 0 && (
-          <span style={{
-            fontSize: 10.5, color: 'var(--text-3)',
-            fontVariantNumeric: 'tabular-nums',
-            fontFamily: 'var(--font-jetbrains-mono), monospace',
-            padding: '2px 7px', border: '1px solid var(--border-2)', borderRadius: 4,
-          }}>
+          <span className="text-[10px] text-muted-foreground font-mono border border-border/50 rounded px-2 py-0.5">
             {msgCount} {msgCount === 1 ? 'mensagem' : 'mensagens'}
           </span>
         )}
       </div>
 
-      {/* ── Truncation warning ── */}
+      {/* Truncation warning */}
       {truncated && (
-        <div style={{
-          fontSize: 11, padding: '6px 13px', flexShrink: 0,
-          background: 'var(--amber-bg)', color: 'var(--amber)',
-          borderBottom: '1px solid var(--amber-border)',
-        }}>
+        <div className="text-xs px-4 py-2 shrink-0 bg-amber-500/10 text-amber-400 border-b border-amber-500/20">
           Transcrição muito longa — foi truncada para o contexto do chat.
         </div>
       )}
@@ -155,12 +136,10 @@ export default function ChatPanel({ jobId, lastEditedAt, onCitationClick }: Prop
         </div>
       )}
 
-      {/* ── Messages ── */}
-      <div style={{
-        flex: 1, overflowY: 'auto', padding: '12px', display: 'flex', flexDirection: 'column', gap: 10,
-      }}>
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2.5">
         {messages.length === 0 && (
-          <p style={{ fontSize: 12, color: 'var(--text-3)', textAlign: 'center', marginTop: '2rem', lineHeight: 1.6 }}>
+          <p className="text-xs text-muted-foreground text-center mt-8 leading-relaxed">
             Faça uma pergunta sobre a transcrição.
           </p>
         )}
@@ -168,26 +147,18 @@ export default function ChatPanel({ jobId, lastEditedAt, onCitationClick }: Prop
           const isStreamingThis = loading && i === messages.length - 1 && msg.role === 'assistant'
           if (msg.role === 'user') {
             return (
-              <div key={i} style={{
-                alignSelf: 'flex-end', maxWidth: '90%',
-                padding: '8px 12px', borderRadius: '8px 8px 2px 8px',
-                fontSize: 12, lineHeight: 1.65, wordBreak: 'break-word',
-                background: 'var(--accent)', color: '#fff', fontWeight: 500,
-              }}>
+              <div key={i} className="self-end max-w-[88%] px-3 py-2 rounded-xl rounded-br-sm text-xs leading-relaxed break-words font-medium"
+                style={{ background: 'var(--primary)', color: 'var(--primary-foreground)' }}>
                 {msg.content}
               </div>
             )
           }
           const html = renderAssistantContent(msg.content)
-            + (isStreamingThis ? '<span class="ta-cursor-blink" style="color:var(--accent)">▋</span>' : '')
+            + (isStreamingThis ? '<span class="ta-cursor-blink" style="color:var(--accent-color)">▋</span>' : '')
           return (
-            <div key={i} style={{
-              alignSelf: 'flex-start', maxWidth: '90%',
-              padding: '8px 12px', borderRadius: '8px 8px 8px 2px',
-              fontSize: 12, lineHeight: 1.65, wordBreak: 'break-word',
-              background: 'var(--surface-2)', color: 'var(--text)',
-              border: '1px solid var(--border-2)',
-            }}
+            <div key={i}
+              className="self-start max-w-[88%] px-3 py-2 rounded-xl rounded-bl-sm text-xs leading-relaxed break-words border border-border/50"
+              style={{ background: 'var(--surface-2)', color: 'var(--text)' }}
               dangerouslySetInnerHTML={{ __html: html }}
             />
           )
@@ -195,9 +166,10 @@ export default function ChatPanel({ jobId, lastEditedAt, onCitationClick }: Prop
         <div ref={bottomRef} />
       </div>
 
-      {/* ── Prompt selector ── */}
-      <div style={{ padding: '6px 12px', borderTop: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-        <span style={{ fontSize: 10.5, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>Contexto:</span>
+      {/* Prompt selector */}
+      <div className="flex items-center gap-2 px-3 py-2 border-t border-border/50 shrink-0"
+        style={{ background: 'rgba(0,0,0,0.15)' }}>
+        <span className="text-[10px] text-muted-foreground whitespace-nowrap">Contexto:</span>
         <PromptSelector
           fileId={jobId}
           value={selectedPromptId}
@@ -205,40 +177,24 @@ export default function ChatPanel({ jobId, lastEditedAt, onCitationClick }: Prop
         />
       </div>
 
-      {/* ── Input ── */}
-      <div style={{
-        padding: '10px 12px', borderTop: '1px solid var(--border)',
-        display: 'flex', gap: 7, flexShrink: 0,
-        background: 'var(--surface)',
-      }}>
+      {/* Input */}
+      <div className="flex gap-2 px-3 py-2.5 border-t border-border/50 shrink-0"
+        style={{ background: 'rgba(0,0,0,0.15)' }}>
         <input
-          className="ta-input"
+          className="ta-input flex-1 px-3 py-2 text-xs rounded-lg border border-border/50 bg-background text-foreground font-inherit placeholder:text-muted-foreground"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
           placeholder="Pergunte sobre a transcrição..."
           disabled={loading}
-          style={{
-            flex: 1, padding: '8px 11px', fontSize: 12,
-            borderRadius: 6, border: '1px solid var(--border-3)',
-            background: 'var(--bg)', color: 'var(--text)',
-            fontFamily: 'inherit', letterSpacing: '-0.005em',
-          }}
         />
         <button
           onClick={send}
           disabled={loading || !input.trim()}
-          style={{
-            padding: '8px 14px', fontSize: 12, fontWeight: 500,
-            borderRadius: 6, border: 'none',
-            background: 'var(--accent)', color: '#fff',
-            cursor: loading || !input.trim() ? 'not-allowed' : 'pointer',
-            opacity: loading || !input.trim() ? .5 : 1,
-            transition: 'opacity .15s, background .15s',
-            whiteSpace: 'nowrap', letterSpacing: '-0.005em',
-          }}
+          className="flex items-center justify-center w-8 h-8 rounded-lg transition-opacity disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          style={{ background: 'linear-gradient(135deg, #e8e8ed 0%, #c7c7cc 100%)', color: '#0a0d14' }}
         >
-          {loading ? '...' : 'Enviar'}
+          <Send className="w-3.5 h-3.5" />
         </button>
       </div>
     </div>

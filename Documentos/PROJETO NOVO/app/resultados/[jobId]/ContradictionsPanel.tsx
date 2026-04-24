@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import { AlertTriangle, RotateCcw } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 type Contradiction = {
   id: string
@@ -42,158 +44,75 @@ export default function ContradictionsPanel({ jobId, onSeek }: Props) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--surface)' }}>
-
-      {/* ── Panel header ── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 14px', height: 38,
-        borderBottom: '1px solid var(--border)',
-        flexShrink: 0, background: 'rgba(0,0,0,.15)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <span style={{
-            width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-            background: 'var(--amber)',
-            boxShadow: '0 0 6px rgba(210,153,34,.4)',
-          }} />
-          <span style={{
-            fontSize: 11, fontWeight: 600, color: 'var(--text)',
-            textTransform: 'uppercase', letterSpacing: '0.05em',
-          }}>Contradições</span>
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 h-10 border-b border-border/50 shrink-0"
+        style={{ background: 'rgba(0,0,0,0.2)' }}>
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+          <span className="text-xs font-semibold uppercase tracking-wider text-foreground">Contradições</span>
         </div>
         {ran && items.length > 0 && (
-          <span style={{
-            fontSize: 10.5, color: 'var(--text-3)',
-            fontVariantNumeric: 'tabular-nums',
-            fontFamily: 'var(--font-jetbrains-mono), monospace',
-            padding: '2px 7px', border: '1px solid var(--border-2)', borderRadius: 4,
-          }}>
+          <span className="text-[10px] text-muted-foreground font-mono border border-border/50 rounded px-2 py-0.5">
             {items.length} {items.length === 1 ? 'detectada' : 'detectadas'}
           </span>
         )}
       </div>
 
-      {/* ── Body ── */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-
-        {/* Detect button */}
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2.5">
         {!ran && (
           <button
             onClick={detect}
             disabled={loading}
-            style={{
-              width: '100%', padding: '9px 0',
-              fontSize: 12, fontWeight: 500, borderRadius: 6, border: 'none',
-              background: 'var(--amber)', color: '#0a0a0a',
-              cursor: loading ? 'wait' : 'pointer',
-              opacity: loading ? .7 : 1,
-              transition: 'opacity .15s',
-              letterSpacing: '-0.005em',
-            }}
+            className="w-full py-2.5 text-xs font-semibold rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors disabled:opacity-60 disabled:cursor-wait"
           >
-            {loading ? 'Analisando...' : 'Detectar contradições'}
+            {loading ? 'Analisando…' : 'Detectar contradições'}
           </button>
         )}
 
-        {/* Error */}
-        {error && (
-          <p style={{ fontSize: 12, color: 'var(--red)', margin: 0 }}>{error}</p>
-        )}
+        {error && <p className="text-xs text-destructive">{error}</p>}
 
-        {/* Empty result */}
         {ran && items.length === 0 && (
-          <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0, lineHeight: 1.6 }}>
-            Nenhuma contradição encontrada.
-          </p>
+          <p className="text-xs text-muted-foreground leading-relaxed">Nenhuma contradição encontrada.</p>
         )}
 
-        {/* Contradiction cards */}
         {items.map((item, i) => (
-          <div key={item.id} style={{
-            border: '1px solid var(--border-2)',
-            borderLeft: '2px solid var(--amber)',
-            borderRadius: '0 6px 6px 0',
-            padding: '11px 13px',
-            background: 'var(--surface-2)',
-            display: 'flex', flexDirection: 'column', gap: 7,
-          }}>
-            {/* Card header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', letterSpacing: '-0.005em' }}>
-                Contradição {i + 1}
-              </span>
-              <span style={{
-                fontSize: 10, color: 'var(--amber)',
-                fontVariantNumeric: 'tabular-nums',
-                fontFamily: 'var(--font-jetbrains-mono), monospace',
-                padding: '1px 6px',
-                background: 'var(--amber-bg)', border: '1px solid var(--amber-border)', borderRadius: 3,
-              }}>
-                {Math.round(item.confidenceScore * 100)}%
-              </span>
+          <div key={item.id} className="rounded-lg border border-border/50 border-l-2 overflow-hidden"
+            style={{ borderLeftColor: '#f59e0b', background: 'var(--surface-2)' }}>
+            <div className="px-3 pt-3 pb-2">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold">Contradição {i + 1}</span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded border border-amber-500/30 bg-amber-500/10 text-amber-400">
+                  {Math.round(item.confidenceScore * 100)}%
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">{item.description}</p>
             </div>
-
-            {/* Description */}
-            <p style={{ fontSize: 11.5, color: 'var(--text-2)', lineHeight: 1.6, margin: 0 }}>
-              {item.description}
-            </p>
-
-            {/* Seek chips */}
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
-              <button
-                className="ta-chip"
-                onClick={() => onSeek(item.primaryStartMs)}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 5,
-                  fontSize: 10.5, fontWeight: 500, padding: '3px 9px', borderRadius: 4,
-                  background: 'var(--accent-bg)', color: 'var(--accent)',
-                  border: '1px solid var(--accent-border)',
-                  fontVariantNumeric: 'tabular-nums',
-                  fontFamily: 'var(--font-jetbrains-mono), monospace',
-                  cursor: 'pointer', letterSpacing: 0,
-                }}
-              >
-                <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'currentColor' }} />
-                {formatMs(item.primaryStartMs)}
-              </button>
-              <button
-                className="ta-chip"
-                onClick={() => onSeek(item.conflictingStartMs)}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 5,
-                  fontSize: 10.5, fontWeight: 500, padding: '3px 9px', borderRadius: 4,
-                  background: 'var(--accent-bg)', color: 'var(--accent)',
-                  border: '1px solid var(--accent-border)',
-                  fontVariantNumeric: 'tabular-nums',
-                  fontFamily: 'var(--font-jetbrains-mono), monospace',
-                  cursor: 'pointer', letterSpacing: 0,
-                }}
-              >
-                <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'currentColor' }} />
-                {formatMs(item.conflictingStartMs)}
-              </button>
+            <div className="flex gap-2 px-3 pb-3">
+              {[
+                { ms: item.primaryStartMs },
+                { ms: item.conflictingStartMs },
+              ].map(({ ms }) => (
+                <button key={ms}
+                  onClick={() => onSeek(ms)}
+                  className="ta-ts-chip cursor-pointer hover:opacity-80 transition-opacity"
+                >
+                  {formatMs(ms)}
+                </button>
+              ))}
             </div>
           </div>
         ))}
 
-        {/* Reanalyze */}
         {ran && (
           <button
-            className="ta-btn-reanalyze"
             onClick={() => { setRan(false); setItems([]) }}
-            style={{
-              width: '100%', padding: '7px 0', fontSize: 11.5, fontWeight: 500,
-              color: 'var(--text-3)', background: 'transparent',
-              border: '1px solid var(--border-2)', borderRadius: 6,
-              cursor: 'pointer', transition: 'color .15s, border-color .15s, background .15s',
-              letterSpacing: '-0.005em',
-            }}
+            className="flex items-center justify-center gap-1.5 w-full py-2 text-xs text-muted-foreground border border-border/50 rounded-lg hover:text-foreground hover:border-border transition-colors"
           >
-            Reanalisar
+            <RotateCcw className="w-3 h-3" /> Reanalisar
           </button>
         )}
-
       </div>
     </div>
   )
