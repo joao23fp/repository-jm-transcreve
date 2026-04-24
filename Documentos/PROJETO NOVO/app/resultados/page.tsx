@@ -4,46 +4,11 @@ import { redirect } from 'next/navigation'
 import { EtapaProcessamento } from '@/lib/enums'
 import Link from 'next/link'
 import { CopyButton } from './CopyButton'
-
-const VideoIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="5" width="20" height="14" rx="2" />
-    <path d="m10 9 5 3-5 3z" fill="currentColor" />
-  </svg>
-)
-
-const AudioIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9 18V5l12-2v13" />
-    <circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
-  </svg>
-)
-
-const ErrorIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10" />
-    <line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-  </svg>
-)
-
-const AlertIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10" />
-    <line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-  </svg>
-)
-
-const PlusIcon = () => (
-  <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-    <line x1="6" y1="1" x2="6" y2="11" /><line x1="1" y1="6" x2="11" y2="6" />
-  </svg>
-)
-
-const BackIcon = () => (
-  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="7.5 2 2 6 7.5 10" />
-  </svg>
-)
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
+import { Plus, FileVideo, FileAudio, AlertCircle, ArrowRight, Mic } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export default async function ResultadosPage() {
   const userId = await getAuthUserId()
@@ -58,188 +23,135 @@ export default async function ResultadosPage() {
   const completedCount = jobs.filter(j => j.currentStage === EtapaProcessamento.COMPLETED).length
 
   return (
-    <main style={{ maxWidth: 680, margin: '0 auto', padding: '2.5rem 1.5rem 4rem' }}>
-
-      {/* ── Page header ── */}
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
-        marginBottom: '1.75rem', paddingBottom: '1.25rem',
-        borderBottom: '1px solid var(--border)',
-      }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.025em', color: 'var(--text)' }}>
-            Transcrições
-          </h1>
-          <p style={{ fontSize: 12, color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums' }}>
-            {jobs.length} {jobs.length === 1 ? 'arquivo' : 'arquivos'}
-            {completedCount > 0 && ` · ${completedCount} ${completedCount === 1 ? 'concluído' : 'concluídos'}`}
-          </p>
-        </div>
-        <Link href="/uploads" style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          fontSize: 12, fontWeight: 500, color: 'var(--text)',
-          padding: '0 12px', height: 30, borderRadius: 6,
-          border: '1px solid var(--border-3)', background: 'var(--surface-2)',
-          transition: 'background .15s, border-color .15s',
-        }}>
-          <PlusIcon />
-          Novo upload
-        </Link>
-      </div>
-
-      {/* ── Empty state ── */}
-      {jobs.length === 0 && (
-        <p style={{ color: 'var(--text-3)', textAlign: 'center', marginTop: '4rem', fontSize: 14 }}>
-          Nenhuma transcrição ainda.{' '}
-          <Link href="/uploads" style={{ color: 'var(--accent)' }}>Enviar arquivo</Link>
-        </p>
-      )}
-
-      {/* ── Job list ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {jobs.map((job) => {
-          const isCompleted = job.currentStage === EtapaProcessamento.COMPLETED
-          const isFailed    = job.currentStage === EtapaProcessamento.FAILED
-          const isAudio     = /\.(mp3|wav|m4a|ogg)$/i.test(job.fileName)
-
-          const badge = getBadge(job.currentStage)
-
-          return (
-            <div key={job.id} className="ta-card">
-
-              {/* Card main row */}
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                padding: '11px 14px',
-                borderBottom: isCompleted || isFailed ? '1px solid var(--border)' : 'none',
-              }}>
-                {/* File icon */}
-                <div style={{
-                  width: 32, height: 32, borderRadius: 6, flexShrink: 0,
-                  background: 'var(--surface-2)', border: '1px solid var(--border-2)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: isFailed ? 'var(--red)' : 'var(--text-3)',
-                }}>
-                  {isFailed ? <ErrorIcon /> : isAudio ? <AudioIcon /> : <VideoIcon />}
-                </div>
-
-                {/* File info */}
-                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <span style={{
-                    fontSize: 13, fontWeight: 500, color: 'var(--text)',
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    letterSpacing: '-0.01em',
-                  }}>
-                    {job.fileName}
-                  </span>
-                  <span style={{
-                    fontSize: 11, color: 'var(--text-3)',
-                    fontVariantNumeric: 'tabular-nums',
-                    fontFamily: 'var(--font-jetbrains-mono), monospace',
-                  }}>
-                    {new Date(job.createdAt).toLocaleDateString('pt-BR', {
-                      day: '2-digit', month: '2-digit', year: 'numeric',
-                      hour: '2-digit', minute: '2-digit',
-                    }).replace(',', ' ·')}
-                  </span>
-                </div>
-
-                {/* Right: badge + copy */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 6 }}>
-                  <span style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                    height: 28, padding: '0 10px', borderRadius: 6,
-                    fontSize: 11.5, fontWeight: 500, letterSpacing: '-0.005em',
-                    background: badge.bg, color: badge.color, border: `1px solid ${badge.border}`,
-                    whiteSpace: 'nowrap',
-                  }}>
-                    <span style={{
-                      width: 6, height: 6, borderRadius: '50%',
-                      background: badge.color, flexShrink: 0,
-                      ...(job.currentStage === EtapaProcessamento.COMPLETED
-                        ? { boxShadow: '0 0 6px rgba(63,185,80,.6)' }
-                        : {}),
-                    }} className={
-                      job.currentStage === EtapaProcessamento.TRANSCRIBING ||
-                      job.currentStage === EtapaProcessamento.ANALYZING ||
-                      job.currentStage === EtapaProcessamento.QUEUED
-                        ? 'ta-dot-pulse' : ''
-                    } />
-                    {badge.label}
-                  </span>
-
-                  {isCompleted && <CopyButton jobId={job.id} />}
-                </div>
-              </div>
-
-              {/* Footer — completed */}
-              {isCompleted && (
-                <div style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '9px 14px', background: 'rgba(0,0,0,.2)',
-                }}>
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    fontSize: 11, color: 'var(--text-3)',
-                    fontVariantNumeric: 'tabular-nums',
-                    fontFamily: 'var(--font-jetbrains-mono), monospace',
-                  }}>
-                    <span>{job.actualMinutesConsumed ?? job.estimatedMinutes} min</span>
-                    {job.completedAt && (
-                      <>
-                        <span style={{ width: 1, height: 10, background: 'var(--border-2)' }} />
-                        <span>{Math.round(
-                          (new Date(job.completedAt).getTime() - new Date(job.createdAt).getTime()) / 1000
-                        )}s</span>
-                      </>
-                    )}
-                  </div>
-                  <Link href={`/resultados/${job.id}`} style={{
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    height: 28, padding: '0 14px', borderRadius: 6,
-                    fontSize: 12, fontWeight: 500, letterSpacing: '-0.005em',
-                    background: 'var(--accent)', color: '#fff',
-                    boxShadow: '0 0 0 1px rgba(79,140,255,.3)',
-                    transition: 'background .15s',
-                  }}>
-                    Ver transcrição →
-                  </Link>
-                </div>
-              )}
-
-              {/* Footer — error */}
-              {isFailed && job.errorMessage && (
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '9px 14px', fontSize: 11.5, color: 'var(--red)', lineHeight: 1.5,
-                  background: 'rgba(248,81,73,.03)', borderTop: '1px solid var(--red-border)',
-                }}>
-                  <AlertIcon />
-                  <span>{job.errorMessage}</span>
-                </div>
-              )}
-
+    <div className="min-h-screen bg-background">
+      {/* Navbar */}
+      <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+        <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
+              <Mic className="w-4 h-4 text-primary-foreground" />
             </div>
-          )
-        })}
-      </div>
-    </main>
+            <span className="font-semibold text-sm tracking-tight">TranscreveAdv</span>
+          </div>
+          <Button size="sm" asChild>
+            <Link href="/uploads"><Plus className="w-4 h-4 mr-1.5" />Novo upload</Link>
+          </Button>
+        </div>
+      </header>
+
+      <main className="max-w-3xl mx-auto px-6 py-10">
+        <div className="flex items-end justify-between mb-6">
+          <div>
+            <h1 className="text-xl font-bold tracking-tight">Transcrições</h1>
+            <p className="text-muted-foreground text-xs mt-0.5 tabular-nums">
+              {jobs.length} {jobs.length === 1 ? 'arquivo' : 'arquivos'}
+              {completedCount > 0 && ` · ${completedCount} concluído${completedCount > 1 ? 's' : ''}`}
+            </p>
+          </div>
+        </div>
+
+        <Separator className="mb-6" />
+
+        {jobs.length === 0 && (
+          <div className="text-center py-20">
+            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+              <FileVideo className="w-5 h-5 text-muted-foreground" />
+            </div>
+            <p className="text-muted-foreground text-sm">Nenhuma transcrição ainda.</p>
+            <Button variant="outline" size="sm" className="mt-4" asChild>
+              <Link href="/uploads">Enviar primeiro arquivo</Link>
+            </Button>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-2">
+          {jobs.map((job) => {
+            const isCompleted = job.currentStage === EtapaProcessamento.COMPLETED
+            const isFailed    = job.currentStage === EtapaProcessamento.FAILED
+            const isAudio     = /\.(mp3|wav|m4a|ogg)$/i.test(job.fileName)
+            const badge       = getBadge(job.currentStage)
+
+            return (
+              <div key={job.id} className="rounded-lg border border-border bg-card overflow-hidden transition-colors hover:border-border/80">
+                <div className="flex items-center gap-3 px-4 py-3">
+                  {/* Icon */}
+                  <div className={cn(
+                    "w-8 h-8 rounded-md flex items-center justify-center shrink-0 border",
+                    isFailed ? "bg-destructive/10 border-destructive/20 text-destructive" : "bg-muted border-border text-muted-foreground"
+                  )}>
+                    {isFailed ? <AlertCircle className="w-4 h-4" /> : isAudio ? <FileAudio className="w-4 h-4" /> : <FileVideo className="w-4 h-4" />}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{job.fileName}</p>
+                    <p className="text-xs text-muted-foreground font-mono tabular-nums mt-0.5">
+                      {new Date(job.createdAt).toLocaleDateString('pt-BR', {
+                        day: '2-digit', month: '2-digit', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit',
+                      }).replace(',', ' ·')}
+                    </p>
+                  </div>
+
+                  {/* Badge + actions */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant="outline" className={cn("text-xs gap-1.5", badge.className)}>
+                      <span className={cn("w-1.5 h-1.5 rounded-full", badge.dotClass)} />
+                      {badge.label}
+                    </Badge>
+                    {isCompleted && <CopyButton jobId={job.id} />}
+                  </div>
+                </div>
+
+                {/* Footer completed */}
+                {isCompleted && (
+                  <div className="flex items-center justify-between px-4 py-2 border-t border-border bg-muted/20">
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground font-mono tabular-nums">
+                      <span>{job.actualMinutesConsumed ?? job.estimatedMinutes} min</span>
+                      {job.completedAt && (
+                        <>
+                          <span className="w-px h-3 bg-border" />
+                          <span>{Math.round((new Date(job.completedAt).getTime() - new Date(job.createdAt).getTime()) / 1000)}s</span>
+                        </>
+                      )}
+                    </div>
+                    <Button size="sm" asChild>
+                      <Link href={`/resultados/${job.id}`}>
+                        Ver transcrição <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                      </Link>
+                    </Button>
+                  </div>
+                )}
+
+                {/* Footer error */}
+                {isFailed && job.errorMessage && (
+                  <div className="flex items-center gap-2 px-4 py-2 border-t border-destructive/20 bg-destructive/5 text-destructive text-xs">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    {job.errorMessage}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </main>
+    </div>
   )
 }
 
 function getBadge(stage: string) {
   switch (stage) {
     case EtapaProcessamento.COMPLETED:
-      return { label: 'Concluído',    bg: 'var(--green-bg)',  color: 'var(--green)',  border: 'var(--green-border)' }
+      return { label: 'Concluído',    className: 'border-green-500/30 text-green-400 bg-green-500/10',   dotClass: 'bg-green-400' }
     case EtapaProcessamento.FAILED:
-      return { label: 'Erro',         bg: 'var(--red-bg)',    color: 'var(--red)',    border: 'var(--red-border)'   }
+      return { label: 'Erro',         className: 'border-red-500/30 text-red-400 bg-red-500/10',         dotClass: 'bg-red-400' }
     case EtapaProcessamento.TRANSCRIBING:
-      return { label: 'Transcrevendo', bg: 'var(--accent-bg)', color: 'var(--accent)', border: 'var(--accent-border)' }
+      return { label: 'Transcrevendo', className: 'border-primary/30 text-primary bg-primary/10',        dotClass: 'bg-primary ta-dot-pulse' }
     case EtapaProcessamento.ANALYZING:
-      return { label: 'Analisando',   bg: 'var(--accent-bg)', color: 'var(--accent)', border: 'var(--accent-border)' }
+      return { label: 'Analisando',   className: 'border-primary/30 text-primary bg-primary/10',         dotClass: 'bg-primary ta-dot-pulse' }
     case EtapaProcessamento.UPLOADING:
-      return { label: 'Enviando',     bg: 'var(--accent-bg)', color: 'var(--accent)', border: 'var(--accent-border)' }
+      return { label: 'Enviando',     className: 'border-primary/30 text-primary bg-primary/10',         dotClass: 'bg-primary ta-dot-pulse' }
     default:
-      return { label: 'Na fila',      bg: 'transparent',      color: 'var(--text-2)', border: 'var(--border-3)'     }
+      return { label: 'Na fila',      className: 'border-border text-muted-foreground',                  dotClass: 'bg-muted-foreground' }
   }
 }

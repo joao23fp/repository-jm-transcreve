@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { ChevronLeft, Clock } from 'lucide-react'
 import TranscriptPanel from './TranscriptPanel'
 import ChatPanel from './ChatPanel'
 import ContradictionsPanel from './ContradictionsPanel'
@@ -99,43 +100,18 @@ export default function ViewerLayout({
     }}>
 
       {/* ── Header ── */}
-      <header style={{
-        display: 'flex', alignItems: 'center', gap: 10,
-        padding: '0 14px', height: 44,
-        borderBottom: '1px solid var(--border)',
-        flexShrink: 0, background: 'var(--surface)',
-      }}>
-        <Link href="/resultados" style={{
-          display: 'flex', alignItems: 'center', gap: 5,
-          fontSize: 12, color: 'var(--text-2)', whiteSpace: 'nowrap', flexShrink: 0,
-          padding: '5px 8px', borderRadius: 5, marginLeft: -8,
-          transition: 'color .15s, background .15s',
-        }}>
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="7.5 2 2 6 7.5 10" />
-          </svg>
+      <header className="flex items-center gap-2 px-3 h-11 border-b border-border/50 bg-card/80 backdrop-blur-sm shrink-0">
+        <Link href="/resultados" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0 px-1.5 py-1 rounded hover:bg-muted">
+          <ChevronLeft className="w-3.5 h-3.5" />
           Transcrições
         </Link>
-        <div style={{ width: 1, height: 14, background: 'var(--border-2)', flexShrink: 0 }} />
-        <span style={{
-          flex: 1, minWidth: 0,
-          fontSize: 12.5, fontWeight: 500, color: 'var(--text)',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          fontFamily: 'var(--font-jetbrains-mono), monospace',
-          letterSpacing: '-0.02em',
-        }}>
+        <span className="text-border">·</span>
+        <span className="flex-1 min-w-0 text-xs font-medium truncate font-mono tracking-tight">
           {fileName}
         </span>
         {durationLabel && (
-          <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: 5,
-            fontSize: 11, color: 'var(--text-3)', padding: '3px 8px',
-            border: '1px solid var(--border-2)', borderRadius: 5,
-            fontVariantNumeric: 'tabular-nums',
-            fontFamily: 'var(--font-jetbrains-mono), monospace',
-            flexShrink: 0,
-          }}>
-            <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--text-3)' }} />
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground border border-border/50 rounded px-2 py-0.5 font-mono tabular-nums shrink-0">
+            <Clock className="w-3 h-3" />
             {durationLabel}
           </span>
         )}

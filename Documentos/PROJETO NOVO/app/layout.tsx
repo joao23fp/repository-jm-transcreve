@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
+import { cn } from '@/lib/utils'
+import { Toaster } from '@/components/ui/sonner'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -20,15 +22,13 @@ export const metadata: Metadata = {
   description: 'Transcrição jurídica com IA',
 }
 
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="pt-BR"
-      className={`${inter.variable} ${jetbrainsMono.variable} h-full`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="pt-BR" className={cn('dark h-full', inter.variable, jetbrainsMono.variable)}>
+      <body className="min-h-full flex flex-col font-sans antialiased">
+        {children}
+        <Toaster richColors position="top-right" />
+      </body>
     </html>
   )
 }

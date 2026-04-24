@@ -1,138 +1,189 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-/* ─── Design tokens (dark-first) ──────────────────────────── */
+@custom-variant dark (&:is(.dark *));
+
+/* ─── shadcn/ui design tokens — dark zinc + blue accent ─────── */
 :root {
-  --bg:             #0a0a0a;
-  --surface:        #161616;   /* lifted: cards pop against #0a0a0a */
-  --surface-2:      #1e1e1e;   /* lifted: bubbles/panels distinct from surface */
-  --surface-hover:  #242424;
-  --border:         #262626;
-  --border-2:       #363636;
-  --border-3:       #484848;   /* input borders clearly visible on dark */
+  --background:            oklch(0.09 0 0);
+  --foreground:            oklch(0.97 0 0);
+  --card:                  oklch(0.13 0 0);
+  --card-foreground:       oklch(0.97 0 0);
+  --popover:               oklch(0.13 0 0);
+  --popover-foreground:    oklch(0.97 0 0);
+  --primary:               oklch(0.6 0.2 255);
+  --primary-foreground:    oklch(0.98 0 0);
+  --secondary:             oklch(0.18 0 0);
+  --secondary-foreground:  oklch(0.97 0 0);
+  --muted:                 oklch(0.18 0 0);
+  --muted-foreground:      oklch(0.55 0 0);
+  --accent:                oklch(0.18 0 0);
+  --accent-foreground:     oklch(0.97 0 0);
+  --destructive:           oklch(0.65 0.22 27);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border:                oklch(0.22 0 0);
+  --input:                 oklch(0.22 0 0);
+  --ring:                  oklch(0.6 0.2 255);
+  --radius:                0.5rem;
 
-  --text:           #ededed;
-  --text-2:         #b0b0b0;   /* lifted from #a1a1a1 → 8.5:1 on surface */
-  --text-3:         #808080;   /* lifted from #6e6e6e → 4.8:1 on surface */
-  --text-4:         #606060;   /* lifted from #4a4a4a → placeholder readable */
+  /* chart colors */
+  --chart-1: oklch(0.6  0.2  255);
+  --chart-2: oklch(0.55 0.18 210);
+  --chart-3: oklch(0.65 0.16 160);
+  --chart-4: oklch(0.7  0.15 80);
+  --chart-5: oklch(0.65 0.2  30);
 
-  --accent:         #4f8cff;
-  --accent-hover:   #6ba0ff;
-  --accent-bg:      rgba(79, 140, 255, .13);  /* lifted from .08 */
-  --accent-bg-2:    rgba(79, 140, 255, .22);
-  --accent-border:  rgba(79, 140, 255, .35);  /* lifted from .25 */
+  /* ── App-specific tokens (mapeados para os de cima) ── */
+  --bg:             var(--background);
+  --surface:        var(--card);
+  --surface-2:      oklch(0.17 0 0);
+  --surface-hover:  oklch(0.2 0 0);
 
-  --amber:          #e0a820;   /* brighter amber — more visible on dark */
-  --amber-bg:       rgba(224, 168, 32, .13);  /* lifted from .08 */
-  --amber-border:   rgba(224, 168, 32, .32);  /* lifted from .2  */
+  --border-2:       oklch(0.26 0 0);
+  --border-3:       oklch(0.32 0 0);
 
-  --green:          #4ade80;   /* brighter green — badge clearly readable */
-  --green-bg:       rgba(74, 222, 128, .13);  /* lifted from .1  */
-  --green-border:   rgba(74, 222, 128, .3);   /* lifted from .2  */
+  --text:           var(--foreground);
+  --text-2:         oklch(0.7 0 0);
+  --text-3:         oklch(0.5 0 0);
+  --text-4:         oklch(0.38 0 0);
 
-  --red:            #f87171;   /* slightly softened, still vivid */
-  --red-bg:         rgba(248, 113, 113, .13); /* lifted from .1  */
-  --red-border:     rgba(248, 113, 113, .3);  /* lifted from .2  */
+  /* blue accent */
+  --accent-color:   oklch(0.6 0.2 255);
+  --accent-hover:   oklch(0.65 0.2 255);
+  --accent-bg:      oklch(0.6 0.2 255 / 0.12);
+  --accent-bg-2:    oklch(0.6 0.2 255 / 0.2);
+  --accent-border:  oklch(0.6 0.2 255 / 0.3);
 
-  /* ── Legacy aliases for upload-flow components ── */
-  --ta-text-primary:   var(--text);
+  /* semantic */
+  --amber:          oklch(0.75 0.15 75);
+  --amber-bg:       oklch(0.75 0.15 75 / 0.12);
+  --amber-border:   oklch(0.75 0.15 75 / 0.3);
+
+  --green:          oklch(0.72 0.17 145);
+  --green-bg:       oklch(0.72 0.17 145 / 0.12);
+  --green-border:   oklch(0.72 0.17 145 / 0.3);
+
+  --red:            oklch(0.65 0.22 27);
+  --red-bg:         oklch(0.65 0.22 27 / 0.12);
+  --red-border:     oklch(0.65 0.22 27 / 0.3);
+
+  /* legacy aliases */
+  --ta-text-primary:   var(--foreground);
   --ta-text-secondary: var(--text-2);
-  --ta-text-info:      var(--accent);
-  --ta-bg-primary:     var(--bg);
-  --ta-bg-secondary:   var(--surface);
+  --ta-text-info:      var(--accent-color);
+  --ta-bg-primary:     var(--background);
+  --ta-bg-secondary:   var(--card);
   --ta-bg-tertiary:    var(--surface-2);
   --ta-bg-info:        var(--accent-bg);
   --ta-border-subtle:  var(--border);
   --ta-border-light:   var(--border-2);
   --ta-border-medium:  var(--border-3);
-  --ta-border-info:    var(--accent);
-
-  /* ── Tailwind compat ── */
-  --background: var(--bg);
-  --foreground: var(--text);
+  --ta-border-info:    var(--accent-color);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter);
-  --font-mono: var(--font-jetbrains-mono);
+  --color-background:    var(--background);
+  --color-foreground:    var(--foreground);
+  --color-card:          var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover:       var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary:       var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary:     var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted:         var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent:        var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive:   var(--destructive);
+  --color-border:        var(--border);
+  --color-input:         var(--input);
+  --color-ring:          var(--ring);
+  --color-chart-1:       var(--chart-1);
+  --color-chart-2:       var(--chart-2);
+  --color-chart-3:       var(--chart-3);
+  --color-chart-4:       var(--chart-4);
+  --color-chart-5:       var(--chart-5);
+  --radius-sm:  calc(var(--radius) * 0.75);
+  --radius-md:  var(--radius);
+  --radius-lg:  calc(var(--radius) * 1.5);
+  --radius-xl:  calc(var(--radius) * 2);
+  --font-sans:  var(--font-inter);
+  --font-mono:  var(--font-jetbrains-mono);
 }
 
-/* ─── Base ─────────────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; }
+/* ─── Base ──────────────────────────────────────────────────── */
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
 
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  letter-spacing: -0.005em;
+  * { @apply border-border; }
+
+  html { @apply font-sans; }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+    letter-spacing: -0.005em;
+  }
 }
 
-/* ─── Scrollbars ───────────────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
+/* ─── Scrollbars ────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border-3); border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-4); }
+::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-3); }
 
-/* ─── Keyframes ────────────────────────────────────────────── */
-@keyframes slideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+/* ─── Keyframes ─────────────────────────────────────────────── */
+@keyframes slideIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes pulse   { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
 @keyframes blink   { 0%, 100% { opacity: 1; } 50% { opacity:  0; } }
 
-.ta-slide-in       { animation: slideIn 0.2s ease; }
-.ta-dot-pulse      { animation: pulse  2s ease-in-out infinite; }
-.ta-cursor-blink   { animation: blink  .85s step-end infinite; }
+.ta-slide-in     { animation: slideIn 0.2s ease; }
+.ta-dot-pulse    { animation: pulse  2s ease-in-out infinite; }
+.ta-cursor-blink { animation: blink  .85s step-end infinite; }
 
-/* ─── Job card (hover needs parent→child CSS selector) ─────── */
+/* ─── Legacy card ───────────────────────────────────────────── */
 .ta-card {
   background: var(--surface-2);
-  border: 1px solid var(--border-2);
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 1.2);
   overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0,0,0,.4);
+  box-shadow: 0 1px 3px rgba(0,0,0,.4);
   transition: border-color .12s, background .12s, box-shadow .12s;
 }
-.ta-card:hover { border-color: var(--border-3); background: var(--surface-hover); box-shadow: 0 2px 8px rgba(0,0,0,.5); }
+.ta-card:hover { border-color: var(--border-2); box-shadow: 0 2px 8px rgba(0,0,0,.5); }
 .ta-card:hover .ta-btn-copy { opacity: 1 !important; }
 
-/* ─── Copy button (visible only on card hover) ─────────────── */
-.ta-btn-copy { opacity: 0; transition: opacity .15s, background .15s, color .15s; }
-.ta-btn-copy:hover { background: var(--surface-hover) !important; color: var(--text) !important; }
+/* ─── Copy button ───────────────────────────────────────────── */
+.ta-btn-copy { opacity: 0; transition: opacity .15s, background .15s; }
 
-/* ─── Transcript segment ───────────────────────────────────── */
+/* ─── Transcript segment ────────────────────────────────────── */
 .ta-seg { transition: background .1s, border-color .1s; }
 .ta-seg:hover:not(.ta-seg-active) { background: var(--surface-2) !important; }
 
-/* ─── Stale-warning reanalisar link ────────────────────────── */
-.ta-banner-action { text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(210,153,34,.35); }
-.ta-banner-action:hover { text-decoration-color: currentColor; }
+/* ─── Misc ──────────────────────────────────────────────────── */
+.ta-banner-action { text-decoration: underline; text-underline-offset: 2px; }
 
-/* ─── Chat / contradiction buttons ─────────────────────────── */
-.ta-btn-reanalyze:hover { color: var(--text) !important; border-color: var(--border-3) !important; background: var(--surface-2) !important; }
-
-/* ─── Focus ring for text inputs ───────────────────────────── */
 .ta-input:focus {
   outline: none;
-  border-color: var(--accent) !important;
+  border-color: var(--accent-color) !important;
   box-shadow: 0 0 0 3px var(--accent-bg);
 }
 
-/* ─── Timestamp chip (chat citations) ──────────────────────── */
+/* ─── Timestamp chip ────────────────────────────────────────── */
 .ta-ts-chip {
   display: inline-block;
   font-family: var(--font-jetbrains-mono), monospace;
   font-size: 11px;
   font-weight: 500;
-  padding: 1px 5px;
-  border-radius: 3px;
+  padding: 1px 6px;
+  border-radius: 4px;
   background: var(--accent-bg);
-  color: var(--accent);
+  color: var(--accent-color);
   border: 1px solid var(--accent-border);
-  letter-spacing: 0;
   font-variant-numeric: tabular-nums;
 }
 
-/* ─── Contradiction chip (seek button) ─────────────────────── */
 .ta-chip { transition: background .12s; }
 .ta-chip:hover { background: var(--accent-bg-2) !important; }
