@@ -6,7 +6,7 @@ import type { PromptItem } from './PromptList'
 type PromptSelectorProps = {
   fileId: string
   value: string | null
-  onChange: (promptId: string | null, promptBody: string | null) => void
+  onChange: (promptId: string | null, promptBody: string | null, promptName: string | null) => void
 }
 
 export function PromptSelector({ fileId, value, onChange }: PromptSelectorProps) {
@@ -25,7 +25,7 @@ export function PromptSelector({ fileId, value, onChange }: PromptSelectorProps)
     const promptId = e.target.value || null
 
     if (!promptId) {
-      onChange(null, null)
+      onChange(null, null, null)
       return
     }
 
@@ -33,7 +33,7 @@ export function PromptSelector({ fileId, value, onChange }: PromptSelectorProps)
     if (!res.ok) return
     const prompt = await res.json()
 
-    onChange(promptId, prompt.body ?? null)
+    onChange(promptId, prompt.body ?? null, prompt.name ?? null)
 
     // Registra audit trail
     fetch('/api/prompt-applications', {

@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { MessageCircle, Send } from 'lucide-react'
+import { MessageCircle, Send, Sparkles } from 'lucide-react'
 import { PromptSelector } from '@/app/biblioteca/components/PromptSelector'
 
 type Message = { role: 'user' | 'assistant'; content: string }
@@ -21,9 +21,11 @@ export default function ChatPanel({ jobId, lastEditedAt, onCitationClick }: Prop
   const [showStaleWarning, setShowStaleWarning] = useState(false)
   const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null)
   const [selectedPromptBody, setSelectedPromptBody] = useState<string | null>(null)
+  const [selectedPromptName, setSelectedPromptName] = useState<string | null>(null)
   const lastMsgTimeRef = useRef<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const autoChatFiredRef = useRef(false)
+  const mountedRef = useRef(false)
   const searchParams = useSearchParams()
 
   useEffect(() => {
@@ -36,89 +38,21 @@ export default function ChatPanel({ jobId, lastEditedAt, onCitationClick }: Prop
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // FR-012: auto-iniciar chat quando vem de upload concluído
-  useEffect(() => {
-    const autoChat = searchParams.get('autoChat')
-    const promptIdParam = searchParams.get('promptId')
-    if (!autoChat || autoChatFiredRef.current) return
-    autoChatFiredRef.current = true
-
-    // Aguarda o prompt ser carregado se houver promptId
-    const delay = promptIdParam ? 1200 : 400
-    setTimeout(async () => {
-      let systemPrompt: string | null = null
-      if (promptIdParam) {
-        try {
-          const res = await fetch(`/api/prompts/${promptIdParam}`)
-          if (res.ok) {
-            const p = await res.json()
-            systemPrompt = p.body ?? null
-            setSelectedPromptId(promptIdParam)
-            setSelectedPromptBody(systemPrompt)
-          }
-        } catch {}
-      }
-
-      const autoMessage = 'Faça um resumo estruturado desta transcrição, destacando os pontos principais.'
-      setInput('')
-      setLoading(true)
-      setMessages([{ role: 'user', content: autoMessage }, { role: 'assistant', content: '' }])
-
-      try {
-        const res = await fetch(`/api/jobs/${jobId}/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: autoMessage,
-            ...(systemPrompt && { systemPrompt }),
-          }),
-        })
-        if (res.headers.get('X-Truncated') === '1') setTruncated(true)
-        const reader = res.body!.getReader()
-        const decoder = new TextDecoder()
-        let full = ''
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          const chunk = decoder.decode(value)
-          for (const line of chunk.split('\n')) {
-            if (!line.startsWith('data: ')) continue
-            const data = line.slice(6).trim()
-            if (data === '[DONE]') break
-            try {
-              const { delta } = JSON.parse(data)
-              full += delta
-              setMessages([
-                { role: 'user', content: autoMessage },
-                { role: 'assistant', content: full },
-              ])
-            } catch {}
-          }
-        }
-        lastMsgTimeRef.current = new Date().toISOString()
-      } finally {
-        setLoading(false)
-      }
-    }, delay)
-  }, [searchParams, jobId])
-
-  async function send() {
-    const text = input.trim()
-    if (!text || loading) return
-    setInput('')
+  // ── Função central de streaming ──────────────────────────────────
+  const runChat = useCallback(async (userMessage: string, systemPrompt?: string | null) => {
+    if (loading) return
     setLoading(true)
     setShowStaleWarning(false)
 
-    setMessages((prev) => [...prev, { role: 'user', content: text }])
-    setMessages((prev) => [...prev, { role: 'assistant', content: '' }])
+    setMessages(prev => [...prev, { role: 'user', content: userMessage }, { role: 'assistant', content: '' }])
 
     try {
       const res = await fetch(`/api/jobs/${jobId}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: text,
-          ...(selectedPromptBody && { systemPrompt: selectedPromptBody }),
+          message: userMessage,
+          ...(systemPrompt && { systemPrompt }),
         }),
       })
 
@@ -139,7 +73,7 @@ export default function ChatPanel({ jobId, lastEditedAt, onCitationClick }: Prop
           try {
             const { delta } = JSON.parse(data)
             full += delta
-            setMessages((prev) => {
+            setMessages(prev => {
               const next = [...prev]
               next[next.length - 1] = { role: 'assistant', content: full }
               return next
@@ -150,7 +84,7 @@ export default function ChatPanel({ jobId, lastEditedAt, onCitationClick }: Prop
 
       lastMsgTimeRef.current = new Date().toISOString()
     } catch {
-      setMessages((prev) => {
+      setMessages(prev => {
         const next = [...prev]
         next[next.length - 1] = { role: 'assistant', content: '⚠️ Erro ao processar resposta.' }
         return next
@@ -158,6 +92,61 @@ export default function ChatPanel({ jobId, lastEditedAt, onCitationClick }: Prop
     } finally {
       setLoading(false)
     }
+  }, [jobId, loading])
+
+  // ── FR-012: auto-chat ao vir do upload ───────────────────────────
+  useEffect(() => {
+    const autoChat = searchParams.get('autoChat')
+    const promptIdParam = searchParams.get('promptId')
+    if (!autoChat || autoChatFiredRef.current) return
+    autoChatFiredRef.current = true
+
+    setTimeout(async () => {
+      let systemPrompt: string | null = null
+      let promptName: string | null = null
+
+      if (promptIdParam) {
+        try {
+          const res = await fetch(`/api/prompts/${promptIdParam}`)
+          if (res.ok) {
+            const p = await res.json()
+            systemPrompt = p.body ?? null
+            promptName = p.name ?? null
+            setSelectedPromptId(promptIdParam)
+            setSelectedPromptBody(systemPrompt)
+            setSelectedPromptName(promptName)
+          }
+        } catch {}
+      }
+
+      // Mensagem de ativação — usa o nome do prompt se disponível
+      const message = promptName
+        ? `Executar: ${promptName}`
+        : 'Faça um resumo desta transcrição.'
+
+      await runChat(message, systemPrompt)
+    }, promptIdParam ? 1000 : 300)
+  }, [searchParams, jobId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Auto-disparo ao selecionar prompt no viewer ──────────────────
+  useEffect(() => {
+    // Ignora a montagem inicial
+    if (!mountedRef.current) {
+      mountedRef.current = true
+      return
+    }
+    // Se um prompt foi selecionado (não limpado), dispara automaticamente
+    if (selectedPromptBody && selectedPromptName) {
+      const message = `Executar: ${selectedPromptName}`
+      runChat(message, selectedPromptBody)
+    }
+  }, [selectedPromptId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function send() {
+    const text = input.trim()
+    if (!text || loading) return
+    setInput('')
+    await runChat(text, selectedPromptBody)
   }
 
   const msgCount = messages.filter(m => m.role === 'user').length
@@ -181,24 +170,18 @@ export default function ChatPanel({ jobId, lastEditedAt, onCitationClick }: Prop
 
       {/* Truncation warning */}
       {truncated && (
-        <div className="text-xs px-4 py-2 shrink-0 bg-amber-500/10 text-amber-400 border-b border-amber-500/20">
+        <div className="text-xs px-4 py-2 shrink-0 bg-muted/30 text-muted-foreground border-b border-border/50">
           Transcrição muito longa — foi truncada para o contexto do chat.
         </div>
       )}
 
-      {/* ── Stale warning ── */}
+      {/* Stale warning */}
       {showStaleWarning && (
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-          fontSize: 11, padding: '6px 13px', flexShrink: 0,
-          background: 'var(--amber-bg)', color: 'var(--amber)',
-          borderBottom: '1px solid var(--amber-border)',
-        }}>
+        <div className="flex items-center justify-between gap-2 text-xs px-4 py-2 shrink-0 border-b border-border/50 bg-muted/20 text-muted-foreground">
           <span>Transcrição editada — chat pode estar desatualizado</span>
           <button
             onClick={() => { setMessages([]); setShowStaleWarning(false); lastMsgTimeRef.current = null }}
-            className="ta-banner-action"
-            style={{ fontSize: 11, fontWeight: 600, color: 'inherit', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
+            className="underline underline-offset-2 font-medium whitespace-nowrap hover:text-foreground transition-colors"
           >
             Reanalisar
           </button>
@@ -208,17 +191,27 @@ export default function ChatPanel({ jobId, lastEditedAt, onCitationClick }: Prop
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2.5">
         {messages.length === 0 && (
-          <p className="text-xs text-muted-foreground text-center mt-8 leading-relaxed">
-            Faça uma pergunta sobre a transcrição.
-          </p>
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-4">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center border border-border/50"
+              style={{ background: 'var(--surface-2)' }}>
+              <Sparkles className="w-4 h-4 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-xs font-medium mb-1">Selecione um contexto para análise automática</p>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Ou faça uma pergunta sobre a transcrição abaixo
+              </p>
+            </div>
+          </div>
         )}
         {messages.map((msg, i) => {
           const isStreamingThis = loading && i === messages.length - 1 && msg.role === 'assistant'
           if (msg.role === 'user') {
             return (
-              <div key={i} className="self-end max-w-[88%] px-3 py-2 rounded-xl rounded-br-sm text-xs leading-relaxed break-words font-medium"
+              <div key={i} className="self-end max-w-[88%] px-3 py-2 rounded-xl rounded-br-sm text-xs leading-relaxed break-words font-medium flex items-center gap-1.5"
                 style={{ background: 'var(--primary)', color: 'var(--primary-foreground)' }}>
-                {msg.content}
+                {msg.content.startsWith('Executar:') && <Sparkles className="w-3 h-3 shrink-0" />}
+                {msg.content.replace('Executar: ', '')}
               </div>
             )
           }
@@ -238,11 +231,16 @@ export default function ChatPanel({ jobId, lastEditedAt, onCitationClick }: Prop
       {/* Prompt selector */}
       <div className="flex items-center gap-2 px-3 py-2 border-t border-border/50 shrink-0"
         style={{ background: 'rgba(0,0,0,0.15)' }}>
-        <span className="text-[10px] text-muted-foreground whitespace-nowrap">Contexto:</span>
+        <Sparkles className="w-3 h-3 text-muted-foreground shrink-0" />
+        <span className="text-[10px] text-muted-foreground whitespace-nowrap">Analisar com:</span>
         <PromptSelector
           fileId={jobId}
           value={selectedPromptId}
-          onChange={(id, body) => { setSelectedPromptId(id); setSelectedPromptBody(body) }}
+          onChange={(id, body, name) => {
+            setSelectedPromptId(id)
+            setSelectedPromptBody(body)
+            setSelectedPromptName(name)
+          }}
         />
       </div>
 
@@ -270,14 +268,11 @@ export default function ChatPanel({ jobId, lastEditedAt, onCitationClick }: Prop
   )
 }
 
-// Render assistant message: convert [MM:SS] patterns to styled chips
 function renderAssistantContent(content: string): string {
-  // Escape HTML first
   const escaped = content
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-  // Convert [MM:SS] or [HH:MM:SS] to styled chips
   return escaped.replace(
     /\[(\d{1,2}:\d{2}(?::\d{2})?)\]/g,
     '<span class="ta-ts-chip">$1</span>'
