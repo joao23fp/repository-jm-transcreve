@@ -86,7 +86,10 @@ export async function reconcileCredits(
   await prisma.$transaction(async (tx) => {
     const wallet = await tx.wallet.update({
       where: { userId: reservation.userId },
-      data: { saldoBloqueado: { decrement: reservation.reservedMinutes } },
+      data: {
+        saldoBloqueado: { decrement: reservation.reservedMinutes },
+        saldoTotal: { decrement: actualMinutes },
+      },
     })
     await tx.creditReservation.update({
       where: { jobId },

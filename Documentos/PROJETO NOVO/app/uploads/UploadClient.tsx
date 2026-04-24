@@ -42,6 +42,16 @@ export function UploadClient({ userId, saldoInicial }: Props) {
 
   // Polling fallback when Supabase Realtime is not available
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const navigateToRef = useRef<string | null>(null)
+
+  // Navega fora do ciclo de render
+  useEffect(() => {
+    if (navigateToRef.current) {
+      const target = navigateToRef.current
+      navigateToRef.current = null
+      router.push(target)
+    }
+  })
 
   useEffect(() => {
     const activeJobs = jobStatuses.filter((s) => ACTIVE_STAGES.has(s.stage))
@@ -75,7 +85,7 @@ export function UploadClient({ userId, saldoInicial }: Props) {
           const params = promptIdAtSubmitRef.current
             ? `?autoChat=1&promptId=${promptIdAtSubmitRef.current}`
             : '?autoChat=1'
-          router.push(`/resultados/${justCompleted.jobId}${params}`)
+          navigateToRef.current = `/resultados/${justCompleted.jobId}${params}`
         }
 
         return next
@@ -158,9 +168,23 @@ export function UploadClient({ userId, saldoInicial }: Props) {
     }
   }
 
+  const hasFiles = files.length > 0
+  const hasErrors = files.some(f => f.error)
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-      <FileUploadZone onFilesSelected={setFiles} disabled={loading} />
+      <div style={{
+        borderRadius: '18px',
+        padding: '3px',
+        background: hasFiles && !hasErrors
+          ? 'linear-gradient(135deg, rgba(232,232,237,0.5), rgba(200,200,210,0.2))'
+          : hasErrors
+          ? 'linear-gradient(135deg, rgba(239,68,68,0.4), rgba(239,68,68,0.1))'
+          : 'transparent',
+        transition: 'background 0.3s ease',
+      }}>
+        <FileUploadZone onFilesSelected={setFiles} disabled={loading} hasFiles={hasFiles} hasErrors={hasErrors} />
+      </div>
       <ContextPromptSelector
         selectedPromptId={promptId}
         onChange={setPromptId}
@@ -191,6 +215,7 @@ export function UploadClient({ userId, saldoInicial }: Props) {
       )}
     </div>
   )
+}
 }
 
 async function uploadWithProgress(

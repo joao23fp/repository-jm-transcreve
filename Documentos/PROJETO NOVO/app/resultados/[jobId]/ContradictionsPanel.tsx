@@ -49,7 +49,7 @@ export default function ContradictionsPanel({ jobId, onSeek }: Props) {
       <div className="flex items-center justify-between px-4 h-10 border-b border-border/50 shrink-0"
         style={{ background: 'rgba(0,0,0,0.2)' }}>
         <div className="flex items-center gap-2">
-          <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+          <AlertTriangle className="w-3.5 h-3.5 text-violet-400" />
           <span className="text-xs font-semibold uppercase tracking-wider text-foreground">Contradições</span>
         </div>
         {ran && items.length > 0 && (
@@ -65,7 +65,7 @@ export default function ContradictionsPanel({ jobId, onSeek }: Props) {
           <button
             onClick={detect}
             disabled={loading}
-            className="w-full py-2.5 text-xs font-semibold rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors disabled:opacity-60 disabled:cursor-wait"
+            className="w-full py-2.5 text-xs font-semibold rounded-lg border border-violet-500/30 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 transition-colors disabled:opacity-60 disabled:cursor-wait"
           >
             {loading ? 'Analisando…' : 'Detectar contradições'}
           </button>
@@ -79,11 +79,11 @@ export default function ContradictionsPanel({ jobId, onSeek }: Props) {
 
         {items.map((item, i) => (
           <div key={item.id} className="rounded-lg border border-border/50 border-l-2 overflow-hidden"
-            style={{ borderLeftColor: '#f59e0b', background: 'var(--surface-2)' }}>
+            style={{ borderLeftColor: '#8b5cf6', background: 'var(--surface-2)' }}>
             <div className="px-3 pt-3 pb-2">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold">Contradição {i + 1}</span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded border border-amber-500/30 bg-amber-500/10 text-amber-400">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded border border-violet-500/30 bg-violet-500/10 text-violet-400">
                   {Math.round(item.confidenceScore * 100)}%
                 </span>
               </div>

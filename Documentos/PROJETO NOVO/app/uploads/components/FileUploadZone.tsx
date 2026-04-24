@@ -21,9 +21,11 @@ export type UploadFile = {
 type Props = {
   onFilesSelected: (files: UploadFile[]) => void
   disabled?: boolean
+  hasFiles?: boolean
+  hasErrors?: boolean
 }
 
-export function FileUploadZone({ onFilesSelected, disabled }: Props) {
+export function FileUploadZone({ onFilesSelected, disabled, hasFiles, hasErrors }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
 
@@ -57,11 +59,18 @@ export function FileUploadZone({ onFilesSelected, disabled }: Props) {
       onDrop={(e) => { e.preventDefault(); setDragging(false); if (!disabled) processFiles(e.dataTransfer.files) }}
       className="w-full flex flex-col items-center justify-center gap-4 transition-all duration-200"
       style={{
-        border: `1.5px dashed ${dragging ? 'var(--primary)' : 'var(--border-2)'}`,
-        borderRadius: '16px',
-        padding: '3.5rem 2rem',
+        border: `1.5px dashed ${
+          dragging ? 'var(--primary)'
+          : hasErrors ? 'rgba(239,68,68,0.5)'
+          : hasFiles ? 'rgba(232,232,237,0.4)'
+          : 'var(--border-2)'
+        }`,
+        borderRadius: '14px',
+        padding: '3rem 2rem',
         cursor: disabled ? 'not-allowed' : 'pointer',
-        background: dragging ? 'var(--accent-bg)' : 'var(--card)',
+        background: dragging ? 'var(--accent-bg)'
+          : hasFiles && !hasErrors ? 'rgba(232,232,237,0.03)'
+          : 'var(--card)',
         opacity: disabled ? 0.5 : 1,
       }}
       onMouseEnter={(e) => {
@@ -90,11 +99,21 @@ export function FileUploadZone({ onFilesSelected, disabled }: Props) {
 
       {/* Texto principal */}
       <div className="text-center">
-        <p className="text-sm font-semibold mb-1">
-          Arraste seus arquivos aqui
-        </p>
+        {hasFiles && !hasErrors ? (
+          <p className="text-sm font-semibold mb-1" style={{ color: 'var(--primary)' }}>
+            ✓ Arquivo(s) selecionado(s)
+          </p>
+        ) : hasErrors ? (
+          <p className="text-sm font-semibold mb-1 text-destructive">
+            Arquivo com problema — verifique abaixo
+          </p>
+        ) : (
+          <p className="text-sm font-semibold mb-1">
+            Arraste seus arquivos aqui
+          </p>
+        )}
         <p className="text-xs" style={{ color: 'var(--text-3)' }}>
-          ou <span className="underline underline-offset-2" style={{ color: 'var(--primary)' }}>clique para selecionar</span>
+          {hasFiles ? 'Clique para adicionar mais' : <>ou <span className="underline underline-offset-2" style={{ color: 'var(--primary)' }}>clique para selecionar</span></>}
         </p>
       </div>
 
