@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { FileUploadZone, type UploadFile } from './components/FileUploadZone'
 import { FileList, type JobStatus } from './components/FileList'
 import { CreditPreview } from './components/CreditPreview'
@@ -26,6 +27,9 @@ export function UploadClient({ userId, saldoInicial }: Props) {
   const [wallet, setWallet] = useState(saldoInicial)
   const [loading, setLoading] = useState(false)
   const [promptId, setPromptId] = useState<string | null>(null)
+  const router = useRouter()
+  // Guarda promptId no momento do envio para passar para o viewer
+  const promptIdAtSubmitRef = useRef<string | null>(null)
 
   const handleStatusUpdate = useCallback(
     (jobId: string, stage: EtapaProcessamento, errorMessage?: string | null) => {
@@ -54,13 +58,28 @@ export function UploadClient({ userId, saldoInicial }: Props) {
     pollingRef.current = setInterval(async () => {
       const ids = jobStatuses.map((s) => s.jobId)
       const updates = await getJobStatuses(ids)
-      setJobStatuses((prev) =>
-        prev.map((s) => {
+
+      setJobStatuses((prev) => {
+        const next = prev.map((s) => {
           const u = updates.find((x: any) => x.jobId === s.jobId)
           if (!u) return s
           return { ...s, stage: u.currentStage as EtapaProcessamento, errorMessage: u.errorMessage }
         })
-      )
+
+        // FR-012: auto-navegar quando único job conclui
+        const justCompleted = next.find(
+          (s) => s.stage === EtapaProcessamento.COMPLETED &&
+            prev.find(p => p.jobId === s.jobId)?.stage !== EtapaProcessamento.COMPLETED
+        )
+        if (justCompleted && next.filter(s => ACTIVE_STAGES.has(s.stage)).length === 0) {
+          const params = promptIdAtSubmitRef.current
+            ? `?autoChat=1&promptId=${promptIdAtSubmitRef.current}`
+            : '?autoChat=1'
+          router.push(`/resultados/${justCompleted.jobId}${params}`)
+        }
+
+        return next
+      })
     }, 3000)
 
     return () => {
@@ -69,12 +88,13 @@ export function UploadClient({ userId, saldoInicial }: Props) {
         pollingRef.current = null
       }
     }
-  }, [jobStatuses])
+  }, [jobStatuses, router])
 
   async function handleConfirm() {
     const valid = files.filter((f) => !f.error)
     if (!valid.length) return
     setLoading(true)
+    promptIdAtSubmitRef.current = promptId
 
     try {
       const res = await requestPresignedUrl(

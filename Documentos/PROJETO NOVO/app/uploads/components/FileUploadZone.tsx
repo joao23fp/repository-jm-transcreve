@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { UploadCloud } from 'lucide-react'
 import { getFileDuration } from '@/app/uploads/utils/get-file-duration'
 import {
   MIME_TYPES_ACEITOS,
@@ -54,23 +55,22 @@ export function FileUploadZone({ onFilesSelected, disabled }: Props) {
       onDragOver={(e) => { e.preventDefault(); if (!disabled) setDragging(true) }}
       onDragLeave={() => setDragging(false)}
       onDrop={(e) => { e.preventDefault(); setDragging(false); if (!disabled) processFiles(e.dataTransfer.files) }}
+      className="w-full flex flex-col items-center justify-center gap-4 transition-all duration-200"
       style={{
-        border: `1.5px dashed ${dragging ? 'var(--ta-border-info)' : 'var(--ta-border-light)'}`,
-        borderRadius: '12px',
-        padding: '3rem 2rem',
-        textAlign: 'center',
+        border: `1.5px dashed ${dragging ? 'var(--primary)' : 'var(--border-2)'}`,
+        borderRadius: '16px',
+        padding: '3.5rem 2rem',
         cursor: disabled ? 'not-allowed' : 'pointer',
-        transition: 'all 0.2s ease',
-        background: dragging ? 'var(--ta-bg-info)' : 'var(--ta-bg-secondary)',
+        background: dragging ? 'var(--accent-bg)' : 'var(--card)',
         opacity: disabled ? 0.5 : 1,
       }}
       onMouseEnter={(e) => {
         if (!disabled && !dragging)
-          (e.currentTarget as HTMLDivElement).style.background = 'var(--ta-bg-tertiary)'
+          (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border-3)'
       }}
       onMouseLeave={(e) => {
         if (!dragging)
-          (e.currentTarget as HTMLDivElement).style.background = 'var(--ta-bg-secondary)'
+          (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border-2)'
       }}
     >
       <input
@@ -81,13 +81,35 @@ export function FileUploadZone({ onFilesSelected, disabled }: Props) {
         style={{ display: 'none' }}
         onChange={(e) => processFiles(e.target.files)}
       />
-      <span style={{ fontSize: 40, display: 'block', marginBottom: '0.75rem' }}>📁</span>
-      <p style={{ fontSize: 15, fontWeight: 500, color: 'var(--ta-text-primary)', margin: '0.25rem 0' }}>
-        Arraste arquivos aqui ou{' '}
-        <strong style={{ fontWeight: 600 }}>clique para selecionar</strong>
-      </p>
-      <p style={{ fontSize: 13, color: 'var(--ta-text-secondary)', marginTop: '0.5rem' }}>
-        MP4, MKV, MOV, AVI, MP3, WAV, M4A, OGG · máx. 2 GB / 4h · até 5 arquivos
+
+      {/* Ícone */}
+      <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+        style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+        <UploadCloud className="w-6 h-6" style={{ color: 'var(--primary)' }} />
+      </div>
+
+      {/* Texto principal */}
+      <div className="text-center">
+        <p className="text-sm font-semibold mb-1">
+          Arraste seus arquivos aqui
+        </p>
+        <p className="text-xs" style={{ color: 'var(--text-3)' }}>
+          ou <span className="underline underline-offset-2" style={{ color: 'var(--primary)' }}>clique para selecionar</span>
+        </p>
+      </div>
+
+      {/* Formatos */}
+      <div className="flex flex-wrap items-center justify-center gap-1.5">
+        {['MP3', 'WAV', 'M4A', 'OGG', 'MP4', 'MOV', 'MKV'].map((fmt) => (
+          <span key={fmt} className="px-2 py-0.5 rounded text-[10px] font-medium"
+            style={{ background: 'var(--surface-2)', color: 'var(--text-3)', border: '1px solid var(--border)' }}>
+            {fmt}
+          </span>
+        ))}
+      </div>
+
+      <p className="text-[11px]" style={{ color: 'var(--text-4)' }}>
+        Máx. 2 GB · 4h por arquivo · até {MAX_ARQUIVOS_SIMULTANEOS} arquivos simultâneos
       </p>
     </div>
   )

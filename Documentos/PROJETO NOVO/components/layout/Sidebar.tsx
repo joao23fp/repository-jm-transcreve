@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Upload, BookOpen, CreditCard, Mic } from 'lucide-react'
+import { Upload, BookOpen, CreditCard, Mic, Library, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type SidebarProps = {
@@ -11,9 +11,10 @@ type SidebarProps = {
 }
 
 const navItems = [
-  { href: '/uploads',    label: 'Upload',    icon: Upload },
-  { href: '/resultados', label: 'Biblioteca', icon: BookOpen },
-  { href: '/dashboard',  label: 'Créditos',  icon: CreditCard },
+  { href: '/uploads',    label: 'Upload',         icon: Upload },
+  { href: '/resultados', label: 'Biblioteca',      icon: BookOpen },
+  { href: '/biblioteca', label: 'Prompts',         icon: Library },
+  { href: '/dashboard',  label: 'Meu Perfil',      icon: User },
 ]
 
 export function Sidebar({ saldoDisponivel, saldoTotal }: SidebarProps) {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { MessageCircle, Send } from 'lucide-react'
 import { PromptSelector } from '@/app/biblioteca/components/PromptSelector'
 
@@ -22,6 +23,8 @@ export default function ChatPanel({ jobId, lastEditedAt, onCitationClick }: Prop
   const [selectedPromptBody, setSelectedPromptBody] = useState<string | null>(null)
   const lastMsgTimeRef = useRef<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const autoChatFiredRef = useRef(false)
+  const searchParams = useSearchParams()
 
   useEffect(() => {
     if (lastEditedAt && lastMsgTimeRef.current) {
@@ -32,6 +35,72 @@ export default function ChatPanel({ jobId, lastEditedAt, onCitationClick }: Prop
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // FR-012: auto-iniciar chat quando vem de upload concluído
+  useEffect(() => {
+    const autoChat = searchParams.get('autoChat')
+    const promptIdParam = searchParams.get('promptId')
+    if (!autoChat || autoChatFiredRef.current) return
+    autoChatFiredRef.current = true
+
+    // Aguarda o prompt ser carregado se houver promptId
+    const delay = promptIdParam ? 1200 : 400
+    setTimeout(async () => {
+      let systemPrompt: string | null = null
+      if (promptIdParam) {
+        try {
+          const res = await fetch(`/api/prompts/${promptIdParam}`)
+          if (res.ok) {
+            const p = await res.json()
+            systemPrompt = p.body ?? null
+            setSelectedPromptId(promptIdParam)
+            setSelectedPromptBody(systemPrompt)
+          }
+        } catch {}
+      }
+
+      const autoMessage = 'Faça um resumo estruturado desta transcrição, destacando os pontos principais.'
+      setInput('')
+      setLoading(true)
+      setMessages([{ role: 'user', content: autoMessage }, { role: 'assistant', content: '' }])
+
+      try {
+        const res = await fetch(`/api/jobs/${jobId}/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: autoMessage,
+            ...(systemPrompt && { systemPrompt }),
+          }),
+        })
+        if (res.headers.get('X-Truncated') === '1') setTruncated(true)
+        const reader = res.body!.getReader()
+        const decoder = new TextDecoder()
+        let full = ''
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          const chunk = decoder.decode(value)
+          for (const line of chunk.split('\n')) {
+            if (!line.startsWith('data: ')) continue
+            const data = line.slice(6).trim()
+            if (data === '[DONE]') break
+            try {
+              const { delta } = JSON.parse(data)
+              full += delta
+              setMessages([
+                { role: 'user', content: autoMessage },
+                { role: 'assistant', content: full },
+              ])
+            } catch {}
+          }
+        }
+        lastMsgTimeRef.current = new Date().toISOString()
+      } finally {
+        setLoading(false)
+      }
+    }, delay)
+  }, [searchParams, jobId])
 
   async function send() {
     const text = input.trim()

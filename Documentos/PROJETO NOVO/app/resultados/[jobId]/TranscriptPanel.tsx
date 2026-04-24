@@ -71,9 +71,9 @@ export default function TranscriptPanel({
               className={`ta-seg${isActive ? ' ta-seg-active' : ''}`}
               style={{
                 padding: '6px 9px',
-                borderRadius: 5,
-                borderLeft: `2px solid ${isActive ? 'var(--accent)' : 'transparent'}`,
-                background: isActive ? 'var(--accent-bg)' : 'transparent',
+                borderRadius: 8,
+                borderLeft: `2px solid ${isActive ? 'var(--primary)' : 'transparent'}`,
+                background: isActive ? 'rgba(232,232,237,0.07)' : 'transparent',
               }}
             >
               {/* Segment header: speaker + timestamp */}
