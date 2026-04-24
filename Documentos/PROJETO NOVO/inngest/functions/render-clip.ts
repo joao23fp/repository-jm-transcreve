@@ -10,9 +10,9 @@ export const renderClip = inngest.createFunction(
   {
     id: 'render-clip',
     retries: 3,
+    triggers: [{ event: 'clip/render.requested' }],
   },
-  { event: 'clip/render.requested' },
-  async ({ event, step }) => {
+  async ({ event, step }: { event: any; step: any }) => {
     const { clipId, userId, fileId, startMs, endMs } = event.data
 
     await step.run('mark-processing', async () => {

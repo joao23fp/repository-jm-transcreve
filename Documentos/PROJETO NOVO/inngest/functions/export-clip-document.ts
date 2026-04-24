@@ -5,9 +5,8 @@ import { generatePdf, generateWord } from '@/lib/export-generators'
 import { IS_LOCAL_STORAGE, localStorageSave } from '@/lib/storage'
 
 export const exportClipDocument = inngest.createFunction(
-  { id: 'export-clip-document', retries: 2 },
-  { event: 'clip/export.requested' },
-  async ({ event, step }) => {
+  { id: 'export-clip-document', retries: 2, triggers: [{ event: 'clip/export.requested' }] },
+  async ({ event, step }: { event: any; step: any }) => {
     const { exportJobId, clipId, userId, format, clipStoragePath, clipName, startMs, endMs, transcriptText } = event.data
 
     await step.run('mark-processing', async () => {
