@@ -21,7 +21,7 @@ export default async function UploadsPage() {
         <div className="relative overflow-hidden px-8 pt-14 pb-8 text-center"
           style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(232,232,237,0.06) 0%, transparent 70%)' }}>
           <h1 className="text-4xl font-bold tracking-tight mb-3">
-            Transcreva qualquer áudio em{' '}
+            Transcreva qualquer áudio ou vídeo em{' '}
             <span style={{ color: 'var(--primary)' }}>minutos</span>
           </h1>
           <p className="text-muted-foreground text-base max-w-md mx-auto">

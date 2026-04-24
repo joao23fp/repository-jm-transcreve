@@ -9,6 +9,38 @@ const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
 
 const SYSTEM_TEMPLATES = [
+  // ── Geral (qualquer conteúdo) ──────────────────────────────────
+  {
+    id: 'sys_resumo_geral',
+    name: 'Resumo Geral',
+    description: 'Resumo claro e direto de qualquer áudio ou vídeo.',
+    body: 'Leia esta transcrição e produza um resumo claro e direto contendo: (1) Tema principal abordado, (2) Pontos mais importantes discutidos (máx. 5 tópicos), (3) Conclusões ou resultados mencionados, (4) Qualquer próximo passo ou ação indicada. Escreva em linguagem simples e objetiva, sem jargões.',
+  },
+  {
+    id: 'sys_resumo_reuniao',
+    name: 'Resumo de Reunião',
+    description: 'Ata de reunião com participantes, decisões e próximas ações.',
+    body: 'Analise esta transcrição de reunião e produza uma ata estruturada com: (1) Lista de participantes identificados, (2) Pauta ou temas discutidos, (3) Decisões tomadas durante a reunião, (4) Próximas ações definidas — para cada ação indique o responsável e o prazo mencionado (se houver), (5) Pontos em aberto ou pendências. Seja objetivo e use formato de lista.',
+  },
+  {
+    id: 'sys_pontos_acao',
+    name: 'Pontos de Ação',
+    description: 'Extrai apenas as tarefas, responsáveis e prazos mencionados.',
+    body: 'Leia esta transcrição e liste APENAS os pontos de ação mencionados. Para cada item: (1) Descreva a tarefa de forma clara, (2) Identifique o responsável (se mencionado), (3) Indique o prazo (se mencionado), (4) Cite o timestamp onde foi definido. Ignore qualquer conteúdo que não seja uma ação concreta. Formato: lista numerada.',
+  },
+  {
+    id: 'sys_resumo_entrevista',
+    name: 'Resumo de Entrevista',
+    description: 'Análise de entrevista com pontos fortes, fracos e perfil do candidato.',
+    body: 'Analise esta transcrição de entrevista e produza: (1) Perfil geral do entrevistado com base nas respostas, (2) Pontos fortes demonstrados (habilidades, experiências, exemplos concretos citados), (3) Pontos de atenção ou lacunas identificadas, (4) Nível de comunicação e clareza nas respostas, (5) Recomendação geral (adequado / requer avaliação adicional / não recomendado). Baseie-se exclusivamente no que foi dito.',
+  },
+  {
+    id: 'sys_topicos_principais',
+    name: 'Tópicos Principais',
+    description: 'Lista os temas centrais discutidos, ideal para podcasts e aulas.',
+    body: 'Identifique e liste os tópicos principais abordados nesta transcrição. Para cada tópico: (1) Nome do tópico, (2) Breve descrição (2-3 linhas), (3) Timestamp aproximado onde foi discutido, (4) Quem abordou o tema (se identificável). Ordene os tópicos pela ordem em que apareceram. Ideal para criar um índice de conteúdo.',
+  },
+  // ── Jurídico ───────────────────────────────────────────────────
   {
     id: 'sys_resumo_audiencia',
     name: 'Resumo de Audiência',
