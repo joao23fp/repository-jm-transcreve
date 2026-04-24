@@ -27,7 +27,7 @@ export function Sidebar({ saldoDisponivel, saldoTotal }: SidebarProps) {
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-5 h-16 border-b border-border/30">
         <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: 'linear-gradient(135deg, #00d4aa 0%, #00b4d8 100%)' }}>
+          style={{ background: 'linear-gradient(135deg, #e8e8ed 0%, #aeaeb2 100%)' }}>
           <Mic className="w-4 h-4 text-black" />
         </div>
         <div className="min-w-0">
@@ -81,7 +81,7 @@ export function Sidebar({ saldoDisponivel, saldoTotal }: SidebarProps) {
               style={{
                 width: `${Math.min(100, pct)}%`,
                 background: pct > 20
-                  ? 'linear-gradient(90deg, #00d4aa 0%, #00b4d8 100%)'
+                  ? 'linear-gradient(90deg, #e8e8ed 0%, #aeaeb2 100%)'
                   : pct > 5
                   ? '#f59e0b'
                   : '#ef4444',
@@ -91,9 +91,9 @@ export function Sidebar({ saldoDisponivel, saldoTotal }: SidebarProps) {
 
           <Link href="/dashboard"
             className="block w-full text-center text-xs font-semibold py-2 rounded-lg transition-colors"
-            style={{ background: 'var(--primary)', color: 'var(--primary-foreground)' }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--accent-hover)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--primary)')}
+            style={{ background: 'linear-gradient(135deg, #e8e8ed 0%, #c7c7cc 100%)', color: '#0a0d14' }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'linear-gradient(135deg, #d1d1d6 0%, #aeaeb2 100%)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'linear-gradient(135deg, #e8e8ed 0%, #c7c7cc 100%)')}
           >
             Comprar créditos →
           </Link>

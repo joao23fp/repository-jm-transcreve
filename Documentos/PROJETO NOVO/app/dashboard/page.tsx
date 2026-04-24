@@ -57,7 +57,7 @@ export default async function DashboardPage() {
 
         {/* Saldo card */}
         <div className="rounded-2xl border border-border overflow-hidden mb-8"
-          style={{ background: 'radial-gradient(ellipse 100% 80% at 70% 50%, rgba(0,212,170,0.08) 0%, transparent 70%), var(--card)' }}>
+          style={{ background: 'radial-gradient(ellipse 100% 80% at 70% 50%, rgba(232,232,237,0.04) 0%, transparent 70%), var(--card)' }}>
           <div className="px-8 py-7 flex items-center justify-between">
             <div>
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">Saldo atual</p>
@@ -74,7 +74,7 @@ export default async function DashboardPage() {
                 <div className="h-full rounded-full transition-all"
                   style={{
                     width: `${Math.min(100, pct)}%`,
-                    background: 'linear-gradient(90deg, #00d4aa 0%, #00b4d8 100%)',
+                    background: 'linear-gradient(90deg, #e8e8ed 0%, #aeaeb2 100%)',
                   }}
                 />
               </div>
@@ -90,13 +90,13 @@ export default async function DashboardPage() {
             <div key={plan.id}
               className="relative rounded-xl border p-5 flex flex-col"
               style={{
-                background: plan.popular ? 'radial-gradient(ellipse at top, rgba(0,212,170,0.08), transparent)' : 'var(--card)',
-                borderColor: plan.popular ? 'rgba(0,212,170,0.4)' : 'var(--border)',
+                background: plan.popular ? 'radial-gradient(ellipse at top, rgba(232,232,237,0.05), transparent)' : 'var(--card)',
+                borderColor: plan.popular ? 'rgba(232,232,237,0.35)' : 'var(--border)',
               }}
             >
               {plan.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-xs font-semibold text-black"
-                  style={{ background: 'linear-gradient(90deg, #00d4aa, #00b4d8)' }}>
+                  style={{ background: 'linear-gradient(90deg, #e8e8ed, #aeaeb2)' }}>
                   Mais popular
                 </div>
               )}

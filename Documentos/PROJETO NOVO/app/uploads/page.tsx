@@ -19,7 +19,7 @@ export default async function UploadsPage() {
       <div className="min-h-screen flex flex-col">
         {/* Hero */}
         <div className="relative overflow-hidden px-8 pt-16 pb-10 text-center"
-          style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0,212,170,0.15) 0%, transparent 70%)' }}>
+          style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(232,232,237,0.07) 0%, transparent 70%)' }}>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/30 bg-primary/10 text-primary text-xs font-medium mb-6">
             <span className="w-1.5 h-1.5 rounded-full bg-primary" />
             Powered by Groq Whisper

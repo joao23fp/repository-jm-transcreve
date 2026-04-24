@@ -11,7 +11,7 @@
   --card-foreground:        #f0f4f8;
   --popover:                #111827;
   --popover-foreground:     #f0f4f8;
-  --primary:                #00d4aa;
+  --primary:                #e8e8ed;
   --primary-foreground:     #0a0d14;
   --secondary:              #1a2235;
   --secondary-foreground:   #f0f4f8;
@@ -23,12 +23,12 @@
   --destructive-foreground: #f0f4f8;
   --border:                 #1f2937;
   --input:                  #1f2937;
-  --ring:                   #00d4aa;
+  --ring:                   #e8e8ed;
   --radius:                 0.625rem;
   --sidebar:                #0d1117;
 
   /* chart */
-  --chart-1: #00d4aa;
+  --chart-1: #e8e8ed;
   --chart-2: #3b82f6;
   --chart-3: #8b5cf6;
   --chart-4: #f59e0b;
@@ -48,19 +48,19 @@
   --text-3:        #6b7280;
   --text-4:        #4b5563;
 
-  --accent-color:  #00d4aa;
-  --accent-hover:  #00bfa0;
-  --accent-bg:     rgba(0, 212, 170, 0.1);
-  --accent-bg-2:   rgba(0, 212, 170, 0.18);
-  --accent-border: rgba(0, 212, 170, 0.3);
+  --accent-color:  #e8e8ed;
+  --accent-hover:  #d1d1d6;
+  --accent-bg:     rgba(232, 232, 237, 0.08);
+  --accent-bg-2:   rgba(232, 232, 237, 0.15);
+  --accent-border: rgba(232, 232, 237, 0.2);
 
   --amber:         #f59e0b;
   --amber-bg:      rgba(245, 158, 11, 0.1);
   --amber-border:  rgba(245, 158, 11, 0.3);
 
-  --green:         #00d4aa;
-  --green-bg:      rgba(0, 212, 170, 0.1);
-  --green-border:  rgba(0, 212, 170, 0.3);
+  --green:         #34d399;
+  --green-bg:      rgba(52, 211, 153, 0.1);
+  --green-border:  rgba(52, 211, 153, 0.3);
 
   --red:           #ef4444;
   --red-bg:        rgba(239, 68, 68, 0.1);
@@ -176,10 +176,10 @@
 
 /* ─── Primary gradient button ───────────────────────────────── */
 .btn-primary-gradient {
-  background: linear-gradient(135deg, #00d4aa 0%, #00b4d8 100%);
+  background: linear-gradient(135deg, #e8e8ed 0%, #c7c7cc 100%);
   color: #0a0d14;
   font-weight: 600;
 }
 .btn-primary-gradient:hover {
-  background: linear-gradient(135deg, #00bfa0 0%, #009fc0 100%);
+  background: linear-gradient(135deg, #d1d1d6 0%, #aeaeb2 100%);
 }
