@@ -3,74 +3,73 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* ─── shadcn/ui design tokens — dark zinc + blue accent ─────── */
+/* ─── Design tokens — dark + teal accent (Scribely style) ────── */
 :root {
-  --background:            oklch(0.09 0 0);
-  --foreground:            oklch(0.97 0 0);
-  --card:                  oklch(0.13 0 0);
-  --card-foreground:       oklch(0.97 0 0);
-  --popover:               oklch(0.13 0 0);
-  --popover-foreground:    oklch(0.97 0 0);
-  --primary:               oklch(0.6 0.2 255);
-  --primary-foreground:    oklch(0.98 0 0);
-  --secondary:             oklch(0.18 0 0);
-  --secondary-foreground:  oklch(0.97 0 0);
-  --muted:                 oklch(0.18 0 0);
-  --muted-foreground:      oklch(0.55 0 0);
-  --accent:                oklch(0.18 0 0);
-  --accent-foreground:     oklch(0.97 0 0);
-  --destructive:           oklch(0.65 0.22 27);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border:                oklch(0.22 0 0);
-  --input:                 oklch(0.22 0 0);
-  --ring:                  oklch(0.6 0.2 255);
-  --radius:                0.5rem;
+  --background:             #0a0d14;
+  --foreground:             #f0f4f8;
+  --card:                   #111827;
+  --card-foreground:        #f0f4f8;
+  --popover:                #111827;
+  --popover-foreground:     #f0f4f8;
+  --primary:                #00d4aa;
+  --primary-foreground:     #0a0d14;
+  --secondary:              #1a2235;
+  --secondary-foreground:   #f0f4f8;
+  --muted:                  #1a2235;
+  --muted-foreground:       #6b7280;
+  --accent:                 #1a2235;
+  --accent-foreground:      #f0f4f8;
+  --destructive:            #ef4444;
+  --destructive-foreground: #f0f4f8;
+  --border:                 #1f2937;
+  --input:                  #1f2937;
+  --ring:                   #00d4aa;
+  --radius:                 0.625rem;
+  --sidebar:                #0d1117;
 
-  /* chart colors */
-  --chart-1: oklch(0.6  0.2  255);
-  --chart-2: oklch(0.55 0.18 210);
-  --chart-3: oklch(0.65 0.16 160);
-  --chart-4: oklch(0.7  0.15 80);
-  --chart-5: oklch(0.65 0.2  30);
+  /* chart */
+  --chart-1: #00d4aa;
+  --chart-2: #3b82f6;
+  --chart-3: #8b5cf6;
+  --chart-4: #f59e0b;
+  --chart-5: #ef4444;
 
-  /* ── App-specific tokens (mapeados para os de cima) ── */
-  --bg:             var(--background);
-  --surface:        var(--card);
-  --surface-2:      oklch(0.17 0 0);
-  --surface-hover:  oklch(0.2 0 0);
+  /* ── legacy app tokens ── */
+  --bg:            var(--background);
+  --surface:       var(--card);
+  --surface-2:     #1a2235;
+  --surface-hover: #1f2d42;
 
-  --border-2:       oklch(0.26 0 0);
-  --border-3:       oklch(0.32 0 0);
+  --border-2:      #2a3a52;
+  --border-3:      #374a65;
 
-  --text:           var(--foreground);
-  --text-2:         oklch(0.7 0 0);
-  --text-3:         oklch(0.5 0 0);
-  --text-4:         oklch(0.38 0 0);
+  --text:          var(--foreground);
+  --text-2:        #9ca3af;
+  --text-3:        #6b7280;
+  --text-4:        #4b5563;
 
-  /* blue accent */
-  --accent-color:   oklch(0.6 0.2 255);
-  --accent-hover:   oklch(0.65 0.2 255);
-  --accent-bg:      oklch(0.6 0.2 255 / 0.12);
-  --accent-bg-2:    oklch(0.6 0.2 255 / 0.2);
-  --accent-border:  oklch(0.6 0.2 255 / 0.3);
+  --accent-color:  #00d4aa;
+  --accent-hover:  #00bfa0;
+  --accent-bg:     rgba(0, 212, 170, 0.1);
+  --accent-bg-2:   rgba(0, 212, 170, 0.18);
+  --accent-border: rgba(0, 212, 170, 0.3);
 
-  /* semantic */
-  --amber:          oklch(0.75 0.15 75);
-  --amber-bg:       oklch(0.75 0.15 75 / 0.12);
-  --amber-border:   oklch(0.75 0.15 75 / 0.3);
+  --amber:         #f59e0b;
+  --amber-bg:      rgba(245, 158, 11, 0.1);
+  --amber-border:  rgba(245, 158, 11, 0.3);
 
-  --green:          oklch(0.72 0.17 145);
-  --green-bg:       oklch(0.72 0.17 145 / 0.12);
-  --green-border:   oklch(0.72 0.17 145 / 0.3);
+  --green:         #00d4aa;
+  --green-bg:      rgba(0, 212, 170, 0.1);
+  --green-border:  rgba(0, 212, 170, 0.3);
 
-  --red:            oklch(0.65 0.22 27);
-  --red-bg:         oklch(0.65 0.22 27 / 0.12);
-  --red-border:     oklch(0.65 0.22 27 / 0.3);
+  --red:           #ef4444;
+  --red-bg:        rgba(239, 68, 68, 0.1);
+  --red-border:    rgba(239, 68, 68, 0.3);
 
   /* legacy aliases */
   --ta-text-primary:   var(--foreground);
   --ta-text-secondary: var(--text-2);
-  --ta-text-info:      var(--accent-color);
+  --ta-text-info:      var(--primary);
   --ta-bg-primary:     var(--background);
   --ta-bg-secondary:   var(--card);
   --ta-bg-tertiary:    var(--surface-2);
@@ -78,33 +77,34 @@
   --ta-border-subtle:  var(--border);
   --ta-border-light:   var(--border-2);
   --ta-border-medium:  var(--border-3);
-  --ta-border-info:    var(--accent-color);
+  --ta-border-info:    var(--primary);
 }
 
 @theme inline {
-  --color-background:    var(--background);
-  --color-foreground:    var(--foreground);
-  --color-card:          var(--card);
+  --color-background:   var(--background);
+  --color-foreground:   var(--foreground);
+  --color-card:         var(--card);
   --color-card-foreground: var(--card-foreground);
-  --color-popover:       var(--popover);
+  --color-popover:      var(--popover);
   --color-popover-foreground: var(--popover-foreground);
-  --color-primary:       var(--primary);
+  --color-primary:      var(--primary);
   --color-primary-foreground: var(--primary-foreground);
-  --color-secondary:     var(--secondary);
+  --color-secondary:    var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted:         var(--muted);
+  --color-muted:        var(--muted);
   --color-muted-foreground: var(--muted-foreground);
-  --color-accent:        var(--accent);
+  --color-accent:       var(--accent);
   --color-accent-foreground: var(--accent-foreground);
-  --color-destructive:   var(--destructive);
-  --color-border:        var(--border);
-  --color-input:         var(--input);
-  --color-ring:          var(--ring);
-  --color-chart-1:       var(--chart-1);
-  --color-chart-2:       var(--chart-2);
-  --color-chart-3:       var(--chart-3);
-  --color-chart-4:       var(--chart-4);
-  --color-chart-5:       var(--chart-5);
+  --color-destructive:  var(--destructive);
+  --color-border:       var(--border);
+  --color-input:        var(--input);
+  --color-ring:         var(--ring);
+  --color-chart-1:      var(--chart-1);
+  --color-chart-2:      var(--chart-2);
+  --color-chart-3:      var(--chart-3);
+  --color-chart-4:      var(--chart-4);
+  --color-chart-5:      var(--chart-5);
+  --color-sidebar:      var(--sidebar);
   --radius-sm:  calc(var(--radius) * 0.75);
   --radius-md:  var(--radius);
   --radius-lg:  calc(var(--radius) * 1.5);
@@ -116,16 +116,9 @@
 /* ─── Base ──────────────────────────────────────────────────── */
 @layer base {
   *, *::before, *::after { box-sizing: border-box; }
-
   * { @apply border-border; }
-
   html { @apply font-sans; }
-
-  body {
-    @apply bg-background text-foreground antialiased;
-    font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
-    letter-spacing: -0.005em;
-  }
+  body { @apply bg-background text-foreground antialiased; letter-spacing: -0.005em; }
 }
 
 /* ─── Scrollbars ────────────────────────────────────────────── */
@@ -147,22 +140,16 @@
 .ta-card {
   background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: calc(var(--radius) * 1.2);
+  border-radius: var(--radius);
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0,0,0,.4);
-  transition: border-color .12s, background .12s, box-shadow .12s;
+  transition: border-color .12s, background .12s;
 }
-.ta-card:hover { border-color: var(--border-2); box-shadow: 0 2px 8px rgba(0,0,0,.5); }
+.ta-card:hover { border-color: var(--border-2); }
 .ta-card:hover .ta-btn-copy { opacity: 1 !important; }
+.ta-btn-copy { opacity: 0; transition: opacity .15s; }
 
-/* ─── Copy button ───────────────────────────────────────────── */
-.ta-btn-copy { opacity: 0; transition: opacity .15s, background .15s; }
-
-/* ─── Transcript segment ────────────────────────────────────── */
 .ta-seg { transition: background .1s, border-color .1s; }
 .ta-seg:hover:not(.ta-seg-active) { background: var(--surface-2) !important; }
-
-/* ─── Misc ──────────────────────────────────────────────────── */
 .ta-banner-action { text-decoration: underline; text-underline-offset: 2px; }
 
 .ta-input:focus {
@@ -171,7 +158,6 @@
   box-shadow: 0 0 0 3px var(--accent-bg);
 }
 
-/* ─── Timestamp chip ────────────────────────────────────────── */
 .ta-ts-chip {
   display: inline-block;
   font-family: var(--font-jetbrains-mono), monospace;
@@ -187,3 +173,13 @@
 
 .ta-chip { transition: background .12s; }
 .ta-chip:hover { background: var(--accent-bg-2) !important; }
+
+/* ─── Primary gradient button ───────────────────────────────── */
+.btn-primary-gradient {
+  background: linear-gradient(135deg, #00d4aa 0%, #00b4d8 100%);
+  color: #0a0d14;
+  font-weight: 600;
+}
+.btn-primary-gradient:hover {
+  background: linear-gradient(135deg, #00bfa0 0%, #009fc0 100%);
+}
