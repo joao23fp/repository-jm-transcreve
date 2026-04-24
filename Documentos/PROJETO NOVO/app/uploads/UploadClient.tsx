@@ -216,7 +216,6 @@ export function UploadClient({ userId, saldoInicial }: Props) {
     </div>
   )
 }
-}
 
 async function uploadWithProgress(
   file: File,
