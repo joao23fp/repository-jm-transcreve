@@ -269,12 +269,42 @@ export default function ChatPanel({ jobId, lastEditedAt, onCitationClick }: Prop
 }
 
 function renderAssistantContent(content: string): string {
-  const escaped = content
+  let html = content
+    // Escape HTML
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-  return escaped.replace(
+
+  // Timestamps [MM:SS]
+  html = html.replace(
     /\[(\d{1,2}:\d{2}(?::\d{2})?)\]/g,
     '<span class="ta-ts-chip">$1</span>'
   )
+
+  // Headings ### ## #
+  html = html.replace(/^### (.+)$/gm, '<p style="font-size:11px;font-weight:700;color:var(--foreground);margin:10px 0 4px">$1</p>')
+  html = html.replace(/^## (.+)$/gm, '<p style="font-size:12px;font-weight:700;color:var(--foreground);margin:12px 0 4px">$1</p>')
+  html = html.replace(/^# (.+)$/gm, '<p style="font-size:13px;font-weight:700;color:var(--foreground);margin:12px 0 6px">$1</p>')
+
+  // Bold **text**
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong style="font-weight:600;color:var(--foreground)">$1</strong>')
+
+  // Italic *text*
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>')
+
+  // Numbered list items: "1. " at start of line
+  html = html.replace(/^\d+\. (.+)$/gm, '<div style="display:flex;gap:8px;margin:3px 0"><span style="color:var(--primary);font-weight:600;min-width:14px">•</span><span>$1</span></div>')
+
+  // Bullet list items: "- " or "* " at start of line
+  html = html.replace(/^[-*] (.+)$/gm, '<div style="display:flex;gap:8px;margin:3px 0"><span style="color:var(--primary);font-weight:600;min-width:14px">·</span><span>$1</span></div>')
+
+  // Horizontal rule ---
+  html = html.replace(/^---+$/gm, '<hr style="border:none;border-top:1px solid var(--border);margin:8px 0"/>')
+
+  // Paragraphs — double newlines
+  html = html.replace(/\n\n+/g, '</p><p style="margin:6px 0">')
+  // Single newlines
+  html = html.replace(/\n/g, '<br/>')
+
+  return `<p style="margin:0;line-height:1.7">${html}</p>`
 }

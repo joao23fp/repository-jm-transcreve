@@ -1,47 +1,61 @@
 'use client'
 
+import { useState, useEffect } from 'react'
+import { Sparkles } from 'lucide-react'
+
+type Prompt = { id: string; name: string; type: string }
+
 type Props = {
   selectedPromptId: string | null
   onChange: (promptId: string | null) => void
   disabled?: boolean
 }
 
-const PROMPTS = [
-  { id: 'audiencia-civel', label: 'Audiência Cível' },
-  { id: 'audiencia-criminal', label: 'Audiência Criminal' },
-  { id: 'reuniao-societaria', label: 'Reunião Societária' },
-  { id: 'depoimento', label: 'Depoimento / Inquirição' },
-]
-
 export function ContextPromptSelector({ selectedPromptId, onChange, disabled }: Props) {
+  const [prompts, setPrompts] = useState<Prompt[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/prompts')
+      .then(r => r.json())
+      .then(data => setPrompts(Array.isArray(data) ? data : []))
+      .catch(() => setPrompts([]))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const sistema = prompts.filter(p => p.type === 'Sistema')
+  const pessoal = prompts.filter(p => p.type === 'Usuario')
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-      <label style={{ fontSize: 14, fontWeight: 600, color: 'var(--ta-text-primary)' }}>
+    <div className="flex flex-col gap-2">
+      <label className="flex items-center gap-2 text-sm font-semibold">
+        <Sparkles className="w-4 h-4" style={{ color: 'var(--primary)' }} />
         Contexto do áudio/vídeo
+        <span className="text-xs font-normal text-muted-foreground">(opcional — define como a IA vai analisar)</span>
       </label>
       <select
         value={selectedPromptId ?? ''}
-        onChange={(e) => onChange(e.target.value || null)}
-        disabled={disabled}
-        style={{
-          width: '100%',
-          padding: '0.75rem 1rem',
-          border: '0.5px solid var(--ta-border-subtle)',
-          borderRadius: 8,
-          fontSize: 14,
-          background: 'var(--ta-bg-primary)',
-          color: 'var(--ta-text-primary)',
-          cursor: disabled ? 'not-allowed' : 'pointer',
-          outline: 'none',
-          transition: 'border-color 0.2s ease',
-        }}
-        onFocus={(e) => { (e.target as HTMLSelectElement).style.borderColor = 'var(--ta-border-info)' }}
-        onBlur={(e) => { (e.target as HTMLSelectElement).style.borderColor = 'var(--ta-border-subtle)' }}
+        onChange={e => onChange(e.target.value || null)}
+        disabled={disabled || loading}
+        className="w-full px-4 py-3 rounded-xl text-sm border border-border/50 bg-card text-foreground cursor-pointer transition-colors focus:outline-none focus:border-primary/50 disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        <option value="">Selecionar contexto (padrão)</option>
-        {PROMPTS.map((p) => (
-          <option key={p.id} value={p.id}>{p.label}</option>
-        ))}
+        <option value="">
+          {loading ? 'Carregando prompts…' : 'Sem contexto — análise padrão'}
+        </option>
+        {sistema.length > 0 && (
+          <optgroup label="── Templates do Sistema">
+            {sistema.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </optgroup>
+        )}
+        {pessoal.length > 0 && (
+          <optgroup label="── Meus Prompts">
+            {pessoal.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </optgroup>
+        )}
       </select>
     </div>
   )
