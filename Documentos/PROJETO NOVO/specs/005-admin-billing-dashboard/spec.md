@@ -111,6 +111,43 @@ Sistema envia alertas (email + toast in-app) quando saldo atinge 20% e novamente
 - **SC-004**: Tempo para usuário completar ciclo compra (seleção → checkout → retorno → crédito visível) ≤5 minutos
 - **SC-005**: Redução em 80% de support tickets sobre "Onde está meu crédito" após visibilidade do status de pagamento
 
+---
+
+### User Story 5: Limitação de Trial (Tier Free / Paywall) (Priority: P1)
+
+Usuários sem plano premium têm acesso restrito: visualização e transcrição sincronizada limitadas aos primeiros 10 minutos de cada arquivo. Após esse ponto, um aviso de upgrade é exibido.
+
+**Why this priority**: P1 — regra de negócio core para monetização. Sem paywall, não há incentivo para compra de créditos.
+
+**Independent Test**: Usuário free acessa arquivo de 25 minutos → player e transcrição funcionam normalmente até 10:00 → após 10:00 player para, overlay de upgrade aparece, botão "Ver planos" abre modal de compra.
+
+**Acceptance Scenarios**:
+
+1. **Given** usuário free (saldo = 0 ou sem transação COMPRA registrada), **When** acessa arquivo de duração > 10 min, **Then** player e transcrição funcionam normalmente até 10:00
+2. **Given** usuário free no minuto 9:50, **When** playback atinge 10:00, **Then** player pausa automaticamente e overlay semitransparente cobre a transcrição após o décimo minuto com mensagem: "Limite de Trial atingido. Faça upgrade para acessar a transcrição completa."
+3. **Given** overlay ativo, **When** usuário clica "Ver planos", **Then** modal de compra de créditos (PurchaseModal) abre com planos disponíveis
+4. **Given** usuário premium (tem saldo > 0 ou transação COMPRA), **When** acessa qualquer arquivo, **Then** sem restrição de tempo — acesso completo sem overlay
+
+---
+
+### User Story 6: Navegação Global Expandida (Priority: P2)
+
+Sidebar inclui acesso direto a "Meu Perfil" (billing/dashboard) e "Biblioteca de Prompts".
+
+**Acceptance Scenarios**:
+
+1. **Given** qualquer página com sidebar, **When** usuário clica "Meu Perfil", **Then** navega para `/dashboard` (módulo 005 — saldo, planos, histórico)
+2. **Given** qualquer página com sidebar, **When** usuário clica "Biblioteca de Prompts", **Then** navega para `/biblioteca` (módulo 004 — templates e prompts personalizados)
+
+---
+
+### Functional Requirements (adicionados)
+
+- **FR-009**: Sistema DEVE determinar tier do usuário no carregamento do viewer: usuário é "premium" se possuir ao menos uma transação do tipo `COMPRA` registrada no banco; caso contrário, tier = "free"
+- **FR-010**: Sistema DEVE bloquear playback e ocultar transcrição após os primeiros 10 minutos (600.000ms) para usuários tier free; o bloqueio ocorre via overlay no componente `VideoPlayer` e truncamento da lista de segmentos na `TranscriptPanel`
+- **FR-011**: Sistema DEVE exibir overlay de upgrade com botão "Ver planos" que abre `PurchaseModal`; o overlay não pode ser dispensado sem upgrade
+- **FR-012**: Sidebar DEVE exibir links para "Meu Perfil" (`/dashboard`) e "Biblioteca de Prompts" (`/biblioteca`) em adição aos links existentes
+
 ## Assumptions
 
 - Integração com processador de pagamentos já existe no projeto; webhooks são configuráveis

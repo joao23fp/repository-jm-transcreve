@@ -83,6 +83,23 @@ Usuário escolhe um "Prompt de Contexto" (ex: "Resumo de Audiência", "Focar em 
 
 ---
 
+### User Story 4: Filtros Avançados no Histórico (Priority: P2)
+
+Usuário acessa `/resultados` e usa filtros para localizar rapidamente um arquivo específico por nome, status, data ou prompt utilizado.
+
+**Why this priority**: P2 — melhora UX para usuários com muitos arquivos; não bloqueia MVP.
+
+**Independent Test**: Usuário com 20+ arquivos filtra por Status=Concluído e Prompt="Análise de Contradições" → lista reduz apenas aos arquivos relevantes.
+
+**Acceptance Scenarios**:
+
+1. **Given** lista com 20 arquivos, **When** usuário digita nome parcial no campo busca, **Then** lista filtra em tempo real (debounce 300ms) sem recarregar a página
+2. **Given** filtro de status ativo ("Concluído"), **When** usuário seleciona também "Falhou", **Then** lista exibe arquivos com qualquer um dos dois status (OR logic)
+3. **Given** filtro de prompt selecionado ("Extração de Fatos-Chave"), **When** lista filtrada, **Then** exibe apenas arquivos que foram processados com esse prompt; arquivos sem prompt não aparecem
+4. **Given** filtros ativos, **When** usuário clica "Limpar filtros", **Then** todos os filtros são resetados e lista volta ao estado original
+
+---
+
 ### Edge Cases
 
 - **Upload interrompido por timeout ou desconexão**: Upload falha com erro; crédito bloqueado é estornado automaticamente pelo job agendado (FR-013) quando a presigned URL expira (TTL 15 min, máximo 30 min de espera até o próximo ciclo); usuária recebe email de notificação e deve iniciar novo upload. Resumable uploads estão fora de escopo v1.
@@ -110,6 +127,7 @@ Usuário escolhe um "Prompt de Contexto" (ex: "Resumo de Audiência", "Focar em 
 - **FR-008**: Sistema DEVE reconciliar créditos: se tarefa levou 7 minutos mas 8 foram bloqueados, estornar 1 minuto automaticamente
 - **FR-014**: Sistema DEVE criar registro `Wallet` com `saldoTotal: 0` para cada nova usuária via webhook Clerk `user.created` (endpoint `POST /api/webhooks/clerk`); sem Wallet, nenhum upload pode ser iniciado
 - **FR-015**: Sistema DEVE notificar a usuária quando o saldo disponível (`saldoTotal - saldoBloqueado`) atingir os limiares de 20% e 5% do `saldoTotal`: exibir alerta visual no componente `CreditPreview` (badge âmbar em ≤20%, badge vermelho em ≤5%) e enviar email via `sendLowBalanceEmail(userId, percentRemaining)` na primeira vez que cada limiar for cruzado por sessão de processamento
+- **FR-016**: Sistema DEVE implementar barra de filtros na tela de Histórico (`/resultados`) com os seguintes critérios combinável: (a) Nome do arquivo (busca textual parcial, case-insensitive); (b) Data de Criação em intervalo [de, até]; (c) Status (Concluído / Processando / Na fila / Falhou — múltipla seleção); (d) Prompt de Contexto utilizado na geração (dropdown com prompts do sistema + prompts pessoais do usuário). Filtros são aplicados client-side para listas ≤100 itens e server-side via query params para listas maiores. Estado dos filtros persiste durante a sessão (não persiste entre recarregamentos).
 - **FR-013**: Sistema DEVE executar job agendado a cada 15 minutos para detectar `CreditReservation` com status `ACTIVE` cuja presigned URL expirou (`FileUpload.presignedUrlExpiresAt < now`) e `uploadConfirmedAt` ainda nulo → marcar `ProcessingJob` como `FAILED`, marcar `CreditReservation.status` como `REFUNDED`, estornar créditos e enviar email via template dedicado `sendExpiredUploadEmail`: "Seu upload de {filename} não foi concluído — o tempo expirou. Seus créditos foram estornados. Tente novamente."
 
 ### Key Entities
