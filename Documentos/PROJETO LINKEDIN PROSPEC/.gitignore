@@ -1,0 +1,21 @@
+# Logs
+linkedin-bot/logs/
+*.log
+
+# Browser profiles (contêm sessão autenticada — NUNCA versionar)
+linkedin-bot/profiles/
+
+# N8N data
+.n8n/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Temporários
+*.tmp
+*.swp
