@@ -1,0 +1,68 @@
+{
+  "name": "ODARA | 07c - Automação NPS",
+  "nodes": [
+    {
+      "id": "nps-001", "name": "Todo dia às 11h",
+      "type": "n8n-nodes-base.scheduleTrigger", "typeVersion": 1.1, "position": [100, 300],
+      "parameters": { "rule": { "interval": [{ "field": "cronExpression", "expression": "0 11 * * *" }] } }
+    },
+    {
+      "id": "nps-002", "name": "Config: DIAS_INICIO_NPS",
+      "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [320, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ⚠️ Defina o valor abaixo (ver VARIAVEIS.md)\nconst DIAS_INICIO_PROTOCOLO_NPS = 21;\nreturn [{ json: { DIAS_INICIO_PROTOCOLO_NPS } }];"
+      }
+    },
+    {
+      "id": "nps-003", "name": "DB: Protocolos Para Envio de NPS",
+      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [540, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT v.id, v.belle_id, v.clint_card_id, v.belle_cliente_cod, v.nome_protocolo, v.data_inicio,\n  c.nome AS nome_cliente, c.celular AS celular_cliente\nFROM vendas v\nJOIN clientes c ON c.belle_id = v.belle_cliente_cod\nWHERE\n  v.status_plano = 'Aprovado'\n  AND v.nps_enviado = FALSE\n  AND v.data_inicio IS NOT NULL\n  AND v.data_inicio <= CURRENT_DATE - INTERVAL '{{ $json.DIAS_INICIO_PROTOCOLO_NPS }} days';",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    {
+      "id": "nps-004", "name": "Há NPS?",
+      "type": "n8n-nodes-base.if", "typeVersion": 2, "position": [760, 300],
+      "parameters": { "conditions": { "options": {}, "conditions": [{ "id": "c1", "leftValue": "={{ $input.all().length }}", "rightValue": 0, "operator": { "type": "number", "operation": "gt" } }], "combinator": "and" } }
+    },
+    {
+      "id": "nps-005", "name": "Loop", "type": "n8n-nodes-base.splitInBatches", "typeVersion": 3, "position": [980, 200], "parameters": { "batchSize": 1, "options": {} }
+    },
+    {
+      "id": "nps-006", "name": "🔵 CLINT: Enviar Pesquisa NPS",
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [1180, 200],
+      "parameters": {
+        "method": "POST", "url": "https://SEU_DOMINIO_CLINT/api/messages/send",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "Bearer SEU_TOKEN_CLINT" }, { "name": "Content-Type", "value": "application/json" }] },
+        "sendBody": true, "contentType": "json",
+        "body": "={\n  \"action\": \"enviar_nps\",\n  \"telefone\": \"{{ $json.celular_cliente }}\",\n  \"mensagem\": \"Oi {{ $json.nome_cliente }}! 🌸\\n\\nJá faz algumas semanas que você iniciou o protocolo {{ $json.nome_protocolo }} com a gente.\\n\\nO que você acha de nos dar uma nota de 0 a 10? Isso nos ajuda a melhorar cada vez mais! 💙\\n\\nDe 0 (péssimo) a 10 (excelente), qual nota você daria para a Odara Rio?\",\n  \"card_id\": \"{{ $json.clint_card_id }}\",\n  \"tipo\": \"nps\",\n  \"aguardar_resposta\": true\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "nps-007", "name": "DB: Marcar NPS Enviado",
+      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [1380, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE vendas SET nps_enviado = TRUE, nps_enviado_em = NOW() WHERE id = {{ $json.id }};\nINSERT INTO mensagens_log (venda_id, tipo, mensagem) VALUES ({{ $json.id }}, 'nps', 'Pesquisa NPS enviada');",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    { "id": "nps-008", "name": "Nada", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [980, 420], "parameters": {} }
+  ],
+  "connections": {
+    "Todo dia às 11h": { "main": [[{ "node": "Config: DIAS_INICIO_NPS", "type": "main", "index": 0 }]] },
+    "Config: DIAS_INICIO_NPS": { "main": [[{ "node": "DB: Protocolos Para Envio de NPS", "type": "main", "index": 0 }]] },
+    "DB: Protocolos Para Envio de NPS": { "main": [[{ "node": "Há NPS?", "type": "main", "index": 0 }]] },
+    "Há NPS?": { "main": [[{ "node": "Loop", "type": "main", "index": 0 }], [{ "node": "Nada", "type": "main", "index": 0 }]] },
+    "Loop": { "main": [[{ "node": "🔵 CLINT: Enviar Pesquisa NPS", "type": "main", "index": 0 }]] },
+    "🔵 CLINT: Enviar Pesquisa NPS": { "main": [[{ "node": "DB: Marcar NPS Enviado", "type": "main", "index": 0 }]] }
+  },
+  "active": false, "settings": { "executionOrder": "v1" }, "pinData": {}
+}

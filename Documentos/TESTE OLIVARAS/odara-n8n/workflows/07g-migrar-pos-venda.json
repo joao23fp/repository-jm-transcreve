@@ -1,0 +1,68 @@
+{
+  "name": "ODARA | 07g - Migrar Card para Funil Pós-Venda",
+  "nodes": [
+    {
+      "id": "pv-001", "name": "Todo dia às 8h",
+      "type": "n8n-nodes-base.scheduleTrigger", "typeVersion": 1.1, "position": [100, 300],
+      "parameters": { "rule": { "interval": [{ "field": "cronExpression", "expression": "0 8 * * *" }] } }
+    },
+    {
+      "id": "pv-002", "name": "Config: DIAS_POS_CONVERSAO",
+      "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [320, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ⚠️ Defina o valor (ver VARIAVEIS.md)\nconst DIAS_POS_CONVERSAO_MIGRAR_FUNIL = 7;\nreturn [{ json: { DIAS_POS_CONVERSAO_MIGRAR_FUNIL } }];"
+      }
+    },
+    {
+      "id": "pv-003", "name": "DB: Vendas para Migrar",
+      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [540, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT v.id, v.belle_id, v.clint_card_id, v.nome_protocolo, v.data_venda,\n  c.nome AS nome_cliente, c.celular AS celular_cliente\nFROM vendas v\nJOIN clientes c ON c.belle_id = v.belle_cliente_cod\nWHERE\n  v.status_plano = 'Aprovado'\n  AND v.migrado_pos_venda = FALSE\n  AND v.data_venda IS NOT NULL\n  AND v.data_venda <= CURRENT_DATE - INTERVAL '{{ $json.DIAS_POS_CONVERSAO_MIGRAR_FUNIL }} days';",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    {
+      "id": "pv-004", "name": "Há para migrar?",
+      "type": "n8n-nodes-base.if", "typeVersion": 2, "position": [760, 300],
+      "parameters": { "conditions": { "options": {}, "conditions": [{ "id": "c1", "leftValue": "={{ $input.all().length }}", "rightValue": 0, "operator": { "type": "number", "operation": "gt" } }], "combinator": "and" } }
+    },
+    {
+      "id": "pv-005", "name": "Loop", "type": "n8n-nodes-base.splitInBatches", "typeVersion": 3, "position": [980, 200], "parameters": { "batchSize": 1, "options": {} }
+    },
+    {
+      "id": "pv-006", "name": "🔵 CLINT: Mover Card para Funil Pós-Venda",
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [1180, 200],
+      "parameters": {
+        "method": "PUT", "url": "https://SEU_DOMINIO_CLINT/api/deals/move-funnel",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "Bearer SEU_TOKEN_CLINT" }, { "name": "Content-Type", "value": "application/json" }] },
+        "sendBody": true, "contentType": "json",
+        "body": "={\n  \"action\": \"migrar_pos_venda\",\n  \"card_id\": \"{{ $json.clint_card_id }}\",\n  \"funil_destino\": \"Pós-Venda\",\n  \"etapa_destino\": \"Paciente Ativa\",\n  \"responsavel_destino\": \"especialista\",\n  \"dados\": {\n    \"protocolo\": \"{{ $json.nome_protocolo }}\",\n    \"nome_cliente\": \"{{ $json.nome_cliente }}\"\n  }\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "pv-007", "name": "DB: Marcar como Migrado",
+      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [1380, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE vendas SET migrado_pos_venda = TRUE, migrado_pos_venda_em = NOW() WHERE id = {{ $json.id }};",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    { "id": "pv-008", "name": "Nada", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [980, 420], "parameters": {} }
+  ],
+  "connections": {
+    "Todo dia às 8h": { "main": [[{ "node": "Config: DIAS_POS_CONVERSAO", "type": "main", "index": 0 }]] },
+    "Config: DIAS_POS_CONVERSAO": { "main": [[{ "node": "DB: Vendas para Migrar", "type": "main", "index": 0 }]] },
+    "DB: Vendas para Migrar": { "main": [[{ "node": "Há para migrar?", "type": "main", "index": 0 }]] },
+    "Há para migrar?": { "main": [[{ "node": "Loop", "type": "main", "index": 0 }], [{ "node": "Nada", "type": "main", "index": 0 }]] },
+    "Loop": { "main": [[{ "node": "🔵 CLINT: Mover Card para Funil Pós-Venda", "type": "main", "index": 0 }]] },
+    "🔵 CLINT: Mover Card para Funil Pós-Venda": { "main": [[{ "node": "DB: Marcar como Migrado", "type": "main", "index": 0 }]] }
+  },
+  "active": false, "settings": { "executionOrder": "v1" }, "pinData": {}
+}

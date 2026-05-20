@@ -1,0 +1,108 @@
+{
+  "name": "ODARA | 04b - Follow-up 24h Pós-Atendimento",
+  "nodes": [
+    {
+      "id": "fu-001",
+      "name": "A cada 1 hora",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [100, 300],
+      "parameters": {
+        "rule": { "interval": [{ "field": "hours", "hoursInterval": 1 }] }
+      }
+    },
+    {
+      "id": "fu-002",
+      "name": "DB: Atendimentos 23-25h Atrás Sem Follow-up",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [320, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  a.id, a.belle_id, a.clint_card_id,\n  a.nome_cliente, a.celular_cliente,\n  a.servicos, a.data_hora\nFROM agendamentos a\nWHERE\n  a.status = 'Atendido'\n  AND a.followup_24h_enviado = FALSE\n  AND a.pos_atendimento_enviado = TRUE\n  AND a.data_hora < NOW() - INTERVAL '23 hours'\n  AND a.data_hora > NOW() - INTERVAL '25 hours'\nORDER BY a.data_hora ASC;",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    {
+      "id": "fu-003",
+      "name": "Há follow-ups a enviar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [540, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [{ "id": "cond-fu-001", "leftValue": "={{ $input.all().length }}", "rightValue": 0, "operator": { "type": "number", "operation": "gt" } }],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "fu-004",
+      "name": "Loop por Follow-up",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [760, 200],
+      "parameters": { "batchSize": 1, "options": {} }
+    },
+    {
+      "id": "fu-005",
+      "name": "Montar MSG Follow-up 24h",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 200],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const a = $input.item.json;\nlet servicos = [];\ntry { servicos = JSON.parse(a.servicos || '[]'); } catch(e) {}\nconst nomeServico = servicos.map(s => s.nome).join(', ') || 'seu procedimento';\n\n// ⚠️ Personalizar por procedimento — texto genérico por ora\nconst msg = `Oi ${a.nome_cliente}! Como você está se sentindo após o ${nomeServico} de ontem? 🌸\\n\\n[INSERIR TEXTO DE CHECK-IN ESPECÍFICO POR PROCEDIMENTO]\\n\\nNos conte como foi! 💙`;\n\nreturn { json: { ...a, mensagem: msg } };"
+      }
+    },
+    {
+      "id": "fu-006",
+      "name": "🔵 CLINT: Enviar MSG Check-in 24h",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1160, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "https://SEU_DOMINIO_CLINT/api/messages/send",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer SEU_TOKEN_CLINT" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"action\": \"enviar_followup_24h\",\n  \"telefone\": \"{{ $json.celular_cliente }}\",\n  \"mensagem\": \"{{ $json.mensagem }}\",\n  \"aguardar_resposta\": true,\n  \"metadata\": { \"agendamento_id\": {{ $json.id }}, \"tipo\": \"followup_24h\" }\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "fu-007",
+      "name": "DB: Marcar Follow-up Enviado",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1380, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE agendamentos SET followup_24h_enviado = TRUE, followup_24h_enviado_em = NOW() WHERE id = {{ $('Montar MSG Follow-up 24h').item.json.id }};\nINSERT INTO mensagens_log (agendamento_id, tipo, mensagem) VALUES ({{ $('Montar MSG Follow-up 24h').item.json.id }}, 'followup_24h', '{{ $('Montar MSG Follow-up 24h').item.json.mensagem.replace(/'/g,\"''\") }}');",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    { "id": "fu-008", "name": "Nada a enviar", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [760, 420], "parameters": {} }
+  ],
+  "connections": {
+    "A cada 1 hora": { "main": [[{ "node": "DB: Atendimentos 23-25h Atrás Sem Follow-up", "type": "main", "index": 0 }]] },
+    "DB: Atendimentos 23-25h Atrás Sem Follow-up": { "main": [[{ "node": "Há follow-ups a enviar?", "type": "main", "index": 0 }]] },
+    "Há follow-ups a enviar?": { "main": [[{ "node": "Loop por Follow-up", "type": "main", "index": 0 }], [{ "node": "Nada a enviar", "type": "main", "index": 0 }]] },
+    "Loop por Follow-up": { "main": [[{ "node": "Montar MSG Follow-up 24h", "type": "main", "index": 0 }]] },
+    "Montar MSG Follow-up 24h": { "main": [[{ "node": "🔵 CLINT: Enviar MSG Check-in 24h", "type": "main", "index": 0 }]] },
+    "🔵 CLINT: Enviar MSG Check-in 24h": { "main": [[{ "node": "DB: Marcar Follow-up Enviado", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

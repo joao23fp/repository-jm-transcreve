@@ -1,0 +1,166 @@
+{
+  "name": "ODARA | 05 - Cadastro de Lead (Clint → Belle)",
+  "nodes": [
+    {
+      "id": "lead-001",
+      "name": "Webhook: Novo Contato do Clint",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [100, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "novo-lead",
+        "responseMode": "lastNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "lead-002",
+      "name": "Extrair Campos do Lead",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [320, 300],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// O Clint envia: { clint_id, nome, telefone, email?, cpf?, origem?, utm_source?, utm_medium?, utm_campaign? }\nconst body = $input.item.json.body || $input.item.json;\n\n// Normalizar telefone (remover +55, espaços, etc.)\nconst normalizarTelefone = (tel) => {\n  if (!tel) return '';\n  return tel.replace(/[^0-9]/g, '');\n};\n\nreturn {\n  json: {\n    clint_id:     body.clint_id || body.id,\n    nome:         body.nome || body.name || '',\n    telefone:     normalizarTelefone(body.telefone || body.phone || body.whatsapp || ''),\n    email:        body.email || '',\n    cpf:          (body.cpf || '').replace(/[^0-9]/g, ''),\n    origem:       body.origem || body.source || 'whatsapp',\n    utm_source:   body.utm_source || '',\n    utm_medium:   body.utm_medium || '',\n    utm_campaign: body.utm_campaign || ''\n  }\n};"
+      }
+    },
+    {
+      "id": "lead-003",
+      "name": "DB: Verificar se Telefone Já Existe",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [540, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, belle_id, clint_id FROM clientes WHERE telefone = '{{ $json.telefone }}' OR celular = '{{ $json.telefone }}' LIMIT 1;",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    {
+      "id": "lead-004",
+      "name": "Cliente já existe no sistema?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [760, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [{ "id": "cond-lead-001", "leftValue": "={{ $input.all().length }}", "rightValue": 0, "operator": { "type": "number", "operation": "gt" } }],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "lead-005",
+      "name": "BELLE: Criar Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [980, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.bellesoftware.com.br/api/release/controller/IntegracaoExterna/v1.0/cliente/gravar-lead",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "669ebde7afafcd939eff35cc43a594cb" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"nome\": \"{{ $('Extrair Campos do Lead').item.json.nome }}\",\n  \"celular\": \"{{ $('Extrair Campos do Lead').item.json.telefone }}\",\n  \"email\": \"{{ $('Extrair Campos do Lead').item.json.email }}\",\n  \"cpf\": \"{{ $('Extrair Campos do Lead').item.json.cpf }}\",\n  \"tpOrigem\": \"{{ $('Extrair Campos do Lead').item.json.origem }}\",\n  \"codEstab\": 1\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "lead-006",
+      "name": "DB: Inserir Novo Lead",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1180, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO leads (clint_id, belle_id, nome, telefone, email, cpf, origem, utm_source, utm_medium, utm_campaign, status)\nVALUES (\n  '{{ $('Extrair Campos do Lead').item.json.clint_id }}',\n  {{ $json.codigo || 'NULL' }},\n  '{{ $('Extrair Campos do Lead').item.json.nome.replace(/'/g,\"''\") }}',\n  '{{ $('Extrair Campos do Lead').item.json.telefone }}',\n  '{{ $('Extrair Campos do Lead').item.json.email }}',\n  '{{ $('Extrair Campos do Lead').item.json.cpf }}',\n  '{{ $('Extrair Campos do Lead').item.json.origem }}',\n  '{{ $('Extrair Campos do Lead').item.json.utm_source }}',\n  '{{ $('Extrair Campos do Lead').item.json.utm_medium }}',\n  '{{ $('Extrair Campos do Lead').item.json.utm_campaign }}',\n  'novo'\n)\nON CONFLICT (clint_id) DO UPDATE SET\n  belle_id = EXCLUDED.belle_id,\n  atualizado_em = NOW()\nRETURNING id, belle_id;",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    {
+      "id": "lead-007",
+      "name": "🔵 CLINT: Atualizar Card com Belle ID",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1380, 200],
+      "parameters": {
+        "method": "PUT",
+        "url": "https://SEU_DOMINIO_CLINT/api/contacts/update",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer SEU_TOKEN_CLINT" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"clint_id\": \"{{ $('Extrair Campos do Lead').item.json.clint_id }}\",\n  \"belle_id\": {{ $('BELLE: Criar Lead').item.json.codigo }},\n  \"campo_personalizado\": \"belle_id\"\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "lead-008",
+      "name": "DB: Vincular Clint ao Registro Existente",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [980, 420],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE clientes SET clint_id = '{{ $('Extrair Campos do Lead').item.json.clint_id }}' WHERE id = {{ $input.first().json.id }} RETURNING id, belle_id, clint_id, nome;",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    {
+      "id": "lead-009",
+      "name": "🔵 CLINT: Atualizar Card — Cliente Já Existe",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1180, 420],
+      "parameters": {
+        "method": "PUT",
+        "url": "https://SEU_DOMINIO_CLINT/api/contacts/update",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer SEU_TOKEN_CLINT" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"clint_id\": \"{{ $('Extrair Campos do Lead').item.json.clint_id }}\",\n  \"belle_id\": {{ $json.belle_id }},\n  \"nota\": \"Cliente já cadastrado no Belle. belle_id: {{ $json.belle_id }}\"\n}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Webhook: Novo Contato do Clint": { "main": [[{ "node": "Extrair Campos do Lead", "type": "main", "index": 0 }]] },
+    "Extrair Campos do Lead": { "main": [[{ "node": "DB: Verificar se Telefone Já Existe", "type": "main", "index": 0 }]] },
+    "DB: Verificar se Telefone Já Existe": { "main": [[{ "node": "Cliente já existe no sistema?", "type": "main", "index": 0 }]] },
+    "Cliente já existe no sistema?": {
+      "main": [
+        [{ "node": "DB: Vincular Clint ao Registro Existente", "type": "main", "index": 0 }],
+        [{ "node": "BELLE: Criar Lead", "type": "main", "index": 0 }]
+      ]
+    },
+    "BELLE: Criar Lead": { "main": [[{ "node": "DB: Inserir Novo Lead", "type": "main", "index": 0 }]] },
+    "DB: Inserir Novo Lead": { "main": [[{ "node": "🔵 CLINT: Atualizar Card com Belle ID", "type": "main", "index": 0 }]] },
+    "DB: Vincular Clint ao Registro Existente": { "main": [[{ "node": "🔵 CLINT: Atualizar Card — Cliente Já Existe", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {},
+  "notes": "Webhook URL: SEU_N8N/webhook/novo-lead — O Clint dispara isso quando um novo contato chega. Verifica duplicata por telefone. Se novo → cria lead no Belle + salva no DB. Se já existe → apenas vincula o clint_id."
+}

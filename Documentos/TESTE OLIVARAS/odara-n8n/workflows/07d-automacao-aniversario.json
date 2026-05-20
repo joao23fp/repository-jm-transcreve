@@ -1,0 +1,77 @@
+{
+  "name": "ODARA | 07d - Automação Aniversário",
+  "nodes": [
+    {
+      "id": "anv-001", "name": "Todo dia às 8h30",
+      "type": "n8n-nodes-base.scheduleTrigger", "typeVersion": 1.1, "position": [100, 300],
+      "parameters": { "rule": { "interval": [{ "field": "cronExpression", "expression": "30 8 * * *" }] } }
+    },
+    {
+      "id": "anv-002", "name": "BELLE: Buscar Aniversariantes de Hoje",
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [320, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "https://app.bellesoftware.com.br/api/release/controller/IntegracaoExterna/v1.0/clientes",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "669ebde7afafcd939eff35cc43a594cb" }] },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "codEstab", "value": "1" },
+            { "name": "pagina", "value": "0" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "anv-003", "name": "Filtrar Aniversariantes Hoje",
+      "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [540, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const hoje = new Date();\nconst diaAtual = String(hoje.getDate()).padStart(2,'0');\nconst mesAtual = String(hoje.getMonth()+1).padStart(2,'0');\n\nconst clientes = $input.all().flatMap(item => {\n  const data = item.json;\n  return Array.isArray(data) ? data : [data];\n});\n\nconst aniversariantes = clientes.filter(c => {\n  if (!c.dtNascimento) return false;\n  const [ano, mes, dia] = c.dtNascimento.split('-');\n  return dia === diaAtual && mes === mesAtual;\n});\n\nreturn aniversariantes.map(c => ({ json: c }));"
+      }
+    },
+    {
+      "id": "anv-004", "name": "Há aniversariantes?",
+      "type": "n8n-nodes-base.if", "typeVersion": 2, "position": [760, 300],
+      "parameters": { "conditions": { "options": {}, "conditions": [{ "id": "c1", "leftValue": "={{ $input.all().length }}", "rightValue": 0, "operator": { "type": "number", "operation": "gt" } }], "combinator": "and" } }
+    },
+    {
+      "id": "anv-005", "name": "Loop", "type": "n8n-nodes-base.splitInBatches", "typeVersion": 3, "position": [980, 200], "parameters": { "batchSize": 1, "options": {} }
+    },
+    {
+      "id": "anv-006", "name": "🔵 CLINT: Enviar MSG Aniversário",
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [1180, 200],
+      "parameters": {
+        "method": "POST", "url": "https://SEU_DOMINIO_CLINT/api/messages/send",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "Bearer SEU_TOKEN_CLINT" }, { "name": "Content-Type", "value": "application/json" }] },
+        "sendBody": true, "contentType": "json",
+        "body": "={\n  \"action\": \"enviar_aniversario\",\n  \"belle_id\": {{ $json.codigo }},\n  \"mensagem\": \"🎂 Feliz Aniversário, {{ $json.nome }}!\\n\\nNesse dia especial, a Odara Rio quer celebrar com você! 🌸\\n\\nObrigada por confiar em nós para cuidar da sua beleza e bem-estar. Que esse novo ano seja repleto de conquistas, saúde e muito amor! 💙\\n\\nCom carinho,\\nEquipe Odara Rio\"\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "anv-007", "name": "DB: Log Aniversário",
+      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [1380, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO mensagens_log (tipo, mensagem, enviada_em)\nVALUES ('aniversario', 'Mensagem de aniversário enviada para belle_id {{ $json.codigo }}', NOW());",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    { "id": "anv-008", "name": "Nenhum aniversariante", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [980, 420], "parameters": {} }
+  ],
+  "connections": {
+    "Todo dia às 8h30": { "main": [[{ "node": "BELLE: Buscar Aniversariantes de Hoje", "type": "main", "index": 0 }]] },
+    "BELLE: Buscar Aniversariantes de Hoje": { "main": [[{ "node": "Filtrar Aniversariantes Hoje", "type": "main", "index": 0 }]] },
+    "Filtrar Aniversariantes Hoje": { "main": [[{ "node": "Há aniversariantes?", "type": "main", "index": 0 }]] },
+    "Há aniversariantes?": { "main": [[{ "node": "Loop", "type": "main", "index": 0 }], [{ "node": "Nenhum aniversariante", "type": "main", "index": 0 }]] },
+    "Loop": { "main": [[{ "node": "🔵 CLINT: Enviar MSG Aniversário", "type": "main", "index": 0 }]] },
+    "🔵 CLINT: Enviar MSG Aniversário": { "main": [[{ "node": "DB: Log Aniversário", "type": "main", "index": 0 }]] }
+  },
+  "active": false, "settings": { "executionOrder": "v1" }, "pinData": {},
+  "notes": "Busca todos os clientes da Belle (paginado - para muitos clientes, adaptar para varrer todas as páginas) e filtra os aniversariantes do dia atual."
+}

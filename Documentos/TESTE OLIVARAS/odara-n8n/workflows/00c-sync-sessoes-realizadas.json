@@ -1,0 +1,122 @@
+{
+  "name": "ODARA | 00c - Sync Sessões Realizadas (diário)",
+  "nodes": [
+    {
+      "id": "ss-001",
+      "name": "Todo dia à meia-noite",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [100, 300],
+      "parameters": {
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "0 0 * * *" }] }
+      }
+    },
+    {
+      "id": "ss-002",
+      "name": "DB: Buscar Protocolos Ativos",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [300, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT v.id, v.belle_id, v.belle_cliente_cod, v.sessoes_total, v.sessoes_realizadas, v.nome_protocolo\nFROM vendas v\nWHERE v.status_plano = 'Aprovado'\n  AND v.sessoes_total > 0\n  AND v.belle_cliente_cod IS NOT NULL\nORDER BY v.id ASC;",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    {
+      "id": "ss-003",
+      "name": "Há protocolos ativos?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [500, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [{ "id": "cond-ss-001", "leftValue": "={{ $input.all().length }}", "rightValue": 0, "operator": { "type": "number", "operation": "gt" } }],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "ss-004",
+      "name": "Loop por Protocolo",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [700, 200],
+      "parameters": { "batchSize": 1, "options": {} }
+    },
+    {
+      "id": "ss-005",
+      "name": "BELLE: Buscar Saldo Atual do Plano",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 200],
+      "parameters": {
+        "method": "GET",
+        "url": "https://app.bellesoftware.com.br/api/release/controller/IntegracaoExterna/v1.0/cliente/planos",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Authorization", "value": "669ebde7afafcd939eff35cc43a594cb" }]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "codCliente", "value": "={{ $json.belle_cliente_cod }}" },
+            { "name": "codEstab",   "value": "1" }
+          ]
+        },
+        "options": { "response": { "response": { "responseFormat": "json" } } }
+      }
+    },
+    {
+      "id": "ss-006",
+      "name": "Calcular Sessões Atuais",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 200],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const protocolo = $('Loop por Protocolo').item.json;\nconst planosCliente = $input.item.json;\n\nconst planos = Array.isArray(planosCliente) ? planosCliente : [planosCliente];\n\n// Encontrar o plano pelo codPlano = belle_id da venda\nconst planoMatch = planos.find(p => String(p.codPlano) === String(protocolo.belle_id));\n\nlet sessoesRealizadas = protocolo.sessoes_realizadas || 0;\nlet saldoRestanteTotal = 0;\nlet planoEncerrado = false;\n\nif (planoMatch && planoMatch.servicos) {\n  saldoRestanteTotal = planoMatch.servicos.reduce((acc, s) => {\n    return acc + (parseInt(s.saldoRestante) || 0);\n  }, 0);\n  sessoesRealizadas = Math.max(0, (protocolo.sessoes_total || 0) - saldoRestanteTotal);\n  planoEncerrado = saldoRestanteTotal === 0;\n} else if (!planoMatch) {\n  // Plano não encontrado na Belle = provavelmente encerrado\n  planoEncerrado = true;\n  sessoesRealizadas = protocolo.sessoes_total || 0;\n}\n\nreturn {\n  json: {\n    db_id:              protocolo.id,\n    belle_id:           protocolo.belle_id,\n    sessoes_total:      protocolo.sessoes_total,\n    sessoes_realizadas: sessoesRealizadas,\n    saldo_restante:     saldoRestanteTotal,\n    plano_encerrado:    planoEncerrado,\n    nome_protocolo:     protocolo.nome_protocolo\n  }\n};"
+      }
+    },
+    {
+      "id": "ss-007",
+      "name": "DB: Atualizar Sessões e Status",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1300, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE vendas SET\n  sessoes_realizadas = {{ $json.sessoes_realizadas }},\n  status_plano = CASE WHEN {{ $json.plano_encerrado ? 'TRUE' : 'FALSE' }} THEN 'Concluido' ELSE status_plano END,\n  atualizado_em = NOW()\nWHERE id = {{ $json.db_id }}\nRETURNING id, belle_id, nome_protocolo, sessoes_total, sessoes_realizadas, status_plano;",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    {
+      "id": "ss-008",
+      "name": "Nenhum protocolo ativo",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [700, 420],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Todo dia à meia-noite": { "main": [[{ "node": "DB: Buscar Protocolos Ativos", "type": "main", "index": 0 }]] },
+    "DB: Buscar Protocolos Ativos": { "main": [[{ "node": "Há protocolos ativos?", "type": "main", "index": 0 }]] },
+    "Há protocolos ativos?": {
+      "main": [
+        [{ "node": "Loop por Protocolo", "type": "main", "index": 0 }],
+        [{ "node": "Nenhum protocolo ativo", "type": "main", "index": 0 }]
+      ]
+    },
+    "Loop por Protocolo": { "main": [[{ "node": "BELLE: Buscar Saldo Atual do Plano", "type": "main", "index": 0 }]] },
+    "BELLE: Buscar Saldo Atual do Plano": { "main": [[{ "node": "Calcular Sessões Atuais", "type": "main", "index": 0 }]] },
+    "Calcular Sessões Atuais": { "main": [[{ "node": "DB: Atualizar Sessões e Status", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {},
+  "notes": "Roda todo dia à meia-noite. Para cada protocolo ativo no DB, chama /cliente/planos na Belle e atualiza sessoes_realizadas = sessoes_total - saldoRestante. Se saldoRestante = 0, marca protocolo como 'Concluido'. Esta é a fonte da verdade para os workflows de renovação (07a) e upsell (07b)."
+}

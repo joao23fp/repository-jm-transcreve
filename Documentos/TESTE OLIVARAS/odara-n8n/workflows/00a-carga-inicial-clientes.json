@@ -1,0 +1,99 @@
+{
+  "name": "ODARA | 00a - Carga Inicial de Clientes (rodar 1x)",
+  "nodes": [
+    {
+      "id": "ci-001",
+      "name": "Executar Manualmente",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 300],
+      "parameters": {}
+    },
+    {
+      "id": "ci-002",
+      "name": "Gerar Lista de Páginas (0-100)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const pages = [];\nfor (let i = 0; i <= 100; i++) {\n  pages.push({ json: { page: i } });\n}\nreturn pages;"
+      }
+    },
+    {
+      "id": "ci-003",
+      "name": "BELLE: Buscar Clientes por Página",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "https://app.bellesoftware.com.br/api/release/controller/IntegracaoExterna/v1.0/clientes",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "669ebde7afafcd939eff35cc43a594cb" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "codEstab", "value": "1" },
+            { "name": "pagina",   "value": "={{ $json.page }}" }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": { "responseFormat": "json" }
+          }
+        }
+      }
+    },
+    {
+      "id": "ci-004",
+      "name": "Filtrar e Normalizar Clientes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const clientes = [];\n\nconst limparData = (d) => {\n  if (!d || d === '0000-00-00') return null;\n  return d;\n};\n\nconst normalizar = (c) => ({\n  json: {\n    belle_id:      parseInt(c.codigo),\n    nome:          (c.nome || '').replace(/'/g, \"''\"),\n    telefone:      c.telefone || '',\n    celular:       (c.celular || '').replace(/[^0-9+]/g, ''),\n    celular2:      (c.celular2 || '').replace(/[^0-9+]/g, ''),\n    cpf:           c.cpf || '',\n    email:         c.email || '',\n    dt_nascimento: limparData(c.dtNascimento),\n    dt_cadastro:   limparData(c.dtCadastro),\n    sexo:          c.sexo || '',\n    profissao:     (c.profissao || '').replace(/'/g, \"''\"),\n    temperatura:   c.temperatura || '',\n    rating:        c.rating !== undefined ? c.rating : null,\n    pontos:        parseInt(c.pontos) || 0,\n    uf:            c.UF || '',\n    cidade:        (c.cidade || '').replace(/'/g, \"''\"),\n    bairro:        (c.bairro || '').replace(/'/g, \"''\"),\n    cep:           c.cep || '',\n    endereco:      (c.endereco || '').replace(/'/g, \"''\"),\n    num_endereco:  c.numEndereco || '',\n    tipo_origem:   c.tipoOrigem || '',\n    origem:        (c.origem || '').replace(/'/g, \"''\"),\n    tags:          JSON.stringify(c.tags || [])\n  }\n});\n\nfor (const item of $input.all()) {\n  const data = item.json;\n  if (Array.isArray(data)) {\n    for (const c of data) {\n      if (c.codigo) clientes.push(normalizar(c));\n    }\n  } else if (data && data.codigo) {\n    clientes.push(normalizar(data));\n  }\n}\n\nconsole.log(`Total de clientes: ${clientes.length}`);\nreturn clientes;"
+      }
+    },
+    {
+      "id": "ci-005",
+      "name": "DB: Upsert Cliente",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [880, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO clientes (\n  belle_id, nome, telefone, celular, celular2, cpf, email,\n  dt_nascimento, dt_cadastro, sexo, profissao, temperatura, rating, pontos,\n  uf, cidade, bairro, cep, endereco, num_endereco,\n  tipo_origem, origem, tags\n) VALUES (\n  {{ $json.belle_id }},\n  '{{ $json.nome }}',\n  '{{ $json.telefone }}',\n  '{{ $json.celular }}',\n  '{{ $json.celular2 }}',\n  '{{ $json.cpf }}',\n  '{{ $json.email }}',\n  {{ $json.dt_nascimento ? `'${$json.dt_nascimento}'` : 'NULL' }},\n  {{ $json.dt_cadastro  ? `'${$json.dt_cadastro}'`  : 'NULL' }},\n  '{{ $json.sexo }}',\n  '{{ $json.profissao }}',\n  '{{ $json.temperatura }}',\n  {{ $json.rating !== null ? $json.rating : 'NULL' }},\n  {{ $json.pontos || 0 }},\n  '{{ $json.uf }}',\n  '{{ $json.cidade }}',\n  '{{ $json.bairro }}',\n  '{{ $json.cep }}',\n  '{{ $json.endereco }}',\n  '{{ $json.num_endereco }}',\n  '{{ $json.tipo_origem }}',\n  '{{ $json.origem }}',\n  '{{ $json.tags }}'::jsonb\n)\nON CONFLICT (belle_id) DO UPDATE SET\n  nome          = EXCLUDED.nome,\n  telefone      = EXCLUDED.telefone,\n  celular       = EXCLUDED.celular,\n  celular2      = EXCLUDED.celular2,\n  cpf           = EXCLUDED.cpf,\n  email         = EXCLUDED.email,\n  dt_nascimento = EXCLUDED.dt_nascimento,\n  dt_cadastro   = EXCLUDED.dt_cadastro,\n  sexo          = EXCLUDED.sexo,\n  profissao     = EXCLUDED.profissao,\n  temperatura   = EXCLUDED.temperatura,\n  rating        = EXCLUDED.rating,\n  pontos        = EXCLUDED.pontos,\n  uf            = EXCLUDED.uf,\n  cidade        = EXCLUDED.cidade,\n  bairro        = EXCLUDED.bairro,\n  cep           = EXCLUDED.cep,\n  endereco      = EXCLUDED.endereco,\n  num_endereco  = EXCLUDED.num_endereco,\n  tipo_origem   = EXCLUDED.tipo_origem,\n  origem        = EXCLUDED.origem,\n  tags          = EXCLUDED.tags,\n  atualizado_em = NOW()\nRETURNING id, belle_id, nome, dt_cadastro;",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "6W46gLQ9cENri003",
+          "name": "PostgreSQL Odara"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Executar Manualmente": {
+      "main": [[{ "node": "Gerar Lista de Páginas (0-100)", "type": "main", "index": 0 }]]
+    },
+    "Gerar Lista de Páginas (0-100)": {
+      "main": [[{ "node": "BELLE: Buscar Clientes por Página", "type": "main", "index": 0 }]]
+    },
+    "BELLE: Buscar Clientes por Página": {
+      "main": [[{ "node": "Filtrar e Normalizar Clientes", "type": "main", "index": 0 }]]
+    },
+    "Filtrar e Normalizar Clientes": {
+      "main": [[{ "node": "DB: Upsert Cliente", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

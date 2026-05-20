@@ -1,0 +1,59 @@
+{
+  "name": "ODARA | 07b - Automação Upsell (2ª/3ª Sessão)",
+  "nodes": [
+    {
+      "id": "up-001", "name": "Todo dia às 10h",
+      "type": "n8n-nodes-base.scheduleTrigger", "typeVersion": 1.1, "position": [100, 300],
+      "parameters": { "rule": { "interval": [{ "field": "cronExpression", "expression": "0 10 * * *" }] } }
+    },
+    {
+      "id": "up-002", "name": "DB: Protocolos na 2ª ou 3ª Sessão",
+      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [320, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT v.id, v.belle_id, v.clint_card_id, v.belle_cliente_cod, v.nome_protocolo,\n  v.sessoes_realizadas,\n  c.nome AS nome_cliente, c.celular AS celular_cliente\nFROM vendas v\nJOIN clientes c ON c.belle_id = v.belle_cliente_cod\nWHERE\n  v.status_plano = 'Aprovado'\n  AND v.upsell_enviado = FALSE\n  AND v.sessoes_realizadas IN (2, 3);",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    {
+      "id": "up-003", "name": "Há upsells?",
+      "type": "n8n-nodes-base.if", "typeVersion": 2, "position": [540, 300],
+      "parameters": { "conditions": { "options": {}, "conditions": [{ "id": "c1", "leftValue": "={{ $input.all().length }}", "rightValue": 0, "operator": { "type": "number", "operation": "gt" } }], "combinator": "and" } }
+    },
+    {
+      "id": "up-004", "name": "Loop", "type": "n8n-nodes-base.splitInBatches", "typeVersion": 3, "position": [760, 200], "parameters": { "batchSize": 1, "options": {} }
+    },
+    {
+      "id": "up-005", "name": "🔵 CLINT: Criar Tarefa de Upsell",
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [960, 200],
+      "parameters": {
+        "method": "POST", "url": "https://SEU_DOMINIO_CLINT/api/tasks",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "Bearer SEU_TOKEN_CLINT" }, { "name": "Content-Type", "value": "application/json" }] },
+        "sendBody": true, "contentType": "json",
+        "body": "={\n  \"action\": \"criar_tarefa_upsell\",\n  \"card_id\": \"{{ $json.clint_card_id }}\",\n  \"titulo\": \"💡 Oportunidade de Upsell — {{ $json.nome_cliente }}\",\n  \"descricao\": \"{{ $json.nome_cliente }} está na {{ $json.sessoes_realizadas }}ª sessão do protocolo {{ $json.nome_protocolo }}. Momento ideal para oferecer tratamento complementar.\",\n  \"responsavel\": \"especialista\",\n  \"prioridade\": \"normal\"\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "up-006", "name": "DB: Marcar Upsell",
+      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [1160, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE vendas SET upsell_enviado = TRUE, upsell_enviado_em = NOW() WHERE id = {{ $json.id }};",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    { "id": "up-007", "name": "Nada", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [760, 420], "parameters": {} }
+  ],
+  "connections": {
+    "Todo dia às 10h": { "main": [[{ "node": "DB: Protocolos na 2ª ou 3ª Sessão", "type": "main", "index": 0 }]] },
+    "DB: Protocolos na 2ª ou 3ª Sessão": { "main": [[{ "node": "Há upsells?", "type": "main", "index": 0 }]] },
+    "Há upsells?": { "main": [[{ "node": "Loop", "type": "main", "index": 0 }], [{ "node": "Nada", "type": "main", "index": 0 }]] },
+    "Loop": { "main": [[{ "node": "🔵 CLINT: Criar Tarefa de Upsell", "type": "main", "index": 0 }]] },
+    "🔵 CLINT: Criar Tarefa de Upsell": { "main": [[{ "node": "DB: Marcar Upsell", "type": "main", "index": 0 }]] }
+  },
+  "active": false, "settings": { "executionOrder": "v1" }, "pinData": {}
+}

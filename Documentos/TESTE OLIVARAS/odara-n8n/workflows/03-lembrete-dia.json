@@ -1,0 +1,108 @@
+{
+  "name": "ODARA | 03 - Lembrete no Dia do Atendimento",
+  "nodes": [
+    {
+      "id": "ld-001",
+      "name": "Todo dia às 8h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [100, 300],
+      "parameters": {
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "0 8 * * *" }] }
+      }
+    },
+    {
+      "id": "ld-002",
+      "name": "DB: Agendamentos de Hoje Sem Lembrete",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [320, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  a.id, a.belle_id, a.clint_card_id,\n  a.nome_cliente, a.celular_cliente,\n  a.hr_consulta, a.servicos, a.nome_profissional\nFROM agendamentos a\nWHERE\n  a.status = 'Marcado'\n  AND a.lembrete_dia_enviado = FALSE\n  AND DATE(a.data_hora) = CURRENT_DATE\nORDER BY a.hr_consulta ASC;",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    {
+      "id": "ld-003",
+      "name": "Há atendimentos hoje?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [540, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [{ "id": "cond-ld-001", "leftValue": "={{ $input.all().length }}", "rightValue": 0, "operator": { "type": "number", "operation": "gt" } }],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "ld-004",
+      "name": "Loop por Agendamento",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [760, 200],
+      "parameters": { "batchSize": 1, "options": {} }
+    },
+    {
+      "id": "ld-005",
+      "name": "Montar Lembrete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 200],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const a = $input.item.json;\nlet servicos = [];\ntry { servicos = JSON.parse(a.servicos || '[]'); } catch(e) {}\nconst nomeServico = servicos.map(s => s.nome).join(', ') || 'seu procedimento';\n\nreturn {\n  json: {\n    ...a,\n    mensagem: `Bom dia, ${a.nome_cliente}! 🌟\\n\\nLembramos que você tem atendimento hoje às ${a.hr_consulta}.\\n💆 ${nomeServico}\\n\\nEstamos te esperando! 💙\\n\\n📍 Odara Rio — [endereço da clínica]`\n  }\n};"
+      }
+    },
+    {
+      "id": "ld-006",
+      "name": "🔵 CLINT: Enviar MSG Lembrete do Dia",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1160, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "https://SEU_DOMINIO_CLINT/api/messages/send",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer SEU_TOKEN_CLINT" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"action\": \"enviar_lembrete_dia\",\n  \"telefone\": \"{{ $json.celular_cliente }}\",\n  \"mensagem\": \"{{ $json.mensagem }}\"\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "ld-007",
+      "name": "DB: Marcar Lembrete Enviado",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1380, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE agendamentos SET lembrete_dia_enviado = TRUE, lembrete_dia_enviado_em = NOW() WHERE id = {{ $('Montar Lembrete').item.json.id }};",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    { "id": "ld-008", "name": "Sem atendimentos hoje", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [760, 420], "parameters": {} }
+  ],
+  "connections": {
+    "Todo dia às 8h": { "main": [[{ "node": "DB: Agendamentos de Hoje Sem Lembrete", "type": "main", "index": 0 }]] },
+    "DB: Agendamentos de Hoje Sem Lembrete": { "main": [[{ "node": "Há atendimentos hoje?", "type": "main", "index": 0 }]] },
+    "Há atendimentos hoje?": { "main": [[{ "node": "Loop por Agendamento", "type": "main", "index": 0 }], [{ "node": "Sem atendimentos hoje", "type": "main", "index": 0 }]] },
+    "Loop por Agendamento": { "main": [[{ "node": "Montar Lembrete", "type": "main", "index": 0 }]] },
+    "Montar Lembrete": { "main": [[{ "node": "🔵 CLINT: Enviar MSG Lembrete do Dia", "type": "main", "index": 0 }]] },
+    "🔵 CLINT: Enviar MSG Lembrete do Dia": { "main": [[{ "node": "DB: Marcar Lembrete Enviado", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

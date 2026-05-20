@@ -1,0 +1,99 @@
+{
+  "name": "ODARA | 07e - Nurturing Leads Não Convertidos (7/30/60 dias)",
+  "nodes": [
+    {
+      "id": "nur-001", "name": "Todo dia às 9h30",
+      "type": "n8n-nodes-base.scheduleTrigger", "typeVersion": 1.1, "position": [100, 300],
+      "parameters": { "rule": { "interval": [{ "field": "cronExpression", "expression": "30 9 * * *" }] } }
+    },
+    {
+      "id": "nur-002", "name": "DB: Leads para Nurturing 7 dias",
+      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [320, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, clint_id, nome, telefone, '7d' AS sequencia FROM leads WHERE status = 'perdido' AND nurturing_7d_enviado = FALSE AND CURRENT_DATE - criado_em::date = 7;",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    {
+      "id": "nur-003", "name": "DB: Leads para Nurturing 30 dias",
+      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [320, 340],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, clint_id, nome, telefone, '30d' AS sequencia FROM leads WHERE status = 'perdido' AND nurturing_30d_enviado = FALSE AND nurturing_7d_enviado = TRUE AND CURRENT_DATE - criado_em::date = 30;",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    {
+      "id": "nur-004", "name": "DB: Leads para Nurturing 60 dias",
+      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [320, 480],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, clint_id, nome, telefone, '60d' AS sequencia FROM leads WHERE status = 'perdido' AND nurturing_60d_enviado = FALSE AND nurturing_30d_enviado = TRUE AND CURRENT_DATE - criado_em::date = 60;",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    {
+      "id": "nur-005", "name": "Juntar Todos os Leads",
+      "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [580, 340],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const todos = $input.all().map(i => ({ json: i.json })).filter(i => i.json.id);\nreturn todos.length > 0 ? todos : [{ json: { _vazio: true } }];"
+      }
+    },
+    {
+      "id": "nur-006", "name": "Há leads para nutrir?",
+      "type": "n8n-nodes-base.if", "typeVersion": 2, "position": [800, 340],
+      "parameters": { "conditions": { "options": {}, "conditions": [{ "id": "c1", "leftValue": "={{ $json._vazio }}", "rightValue": true, "operator": { "type": "boolean", "operation": "notTrue" } }], "combinator": "and" } }
+    },
+    {
+      "id": "nur-007", "name": "Loop", "type": "n8n-nodes-base.splitInBatches", "typeVersion": 3, "position": [1020, 240], "parameters": { "batchSize": 1, "options": {} }
+    },
+    {
+      "id": "nur-008", "name": "Montar Mensagem por Sequência",
+      "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [1220, 240],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const lead = $input.item.json;\nconst msgs = {\n  '7d':  `Oi ${lead.nome}! 😊\\n\\nPassou uma semana desde que conversamos sobre a Odara Rio.\\n\\nAinda está pensando em cuidar de você? A gente adoraria te receber! ✨\\n\\nQuer marcar uma avaliação gratuita?`,\n  '30d': `${lead.nome}, oi! 💙\\n\\nUm mês atrás você demonstrou interesse na Odara Rio e gostaríamos de saber: como está você?\\n\\nNossos protocolos estão cada vez mais incríveis! Que tal darmos uma nova chance? 🌸`,\n  '60d': `Oi ${lead.nome}! Faz tempo... 🥺\\n\\nSabemos que a vida é corrida, mas nunca é tarde para começar a cuidar de você!\\n\\nTemos uma condição especial esperando por você. Vamos conversar? 💆‍♀️`\n};\nreturn { json: { ...lead, mensagem: msgs[lead.sequencia] || '' } };"
+      }
+    },
+    {
+      "id": "nur-009", "name": "🔵 CLINT: Enviar MSG Nurturing",
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [1420, 240],
+      "parameters": {
+        "method": "POST", "url": "https://SEU_DOMINIO_CLINT/api/messages/send",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "Bearer SEU_TOKEN_CLINT" }, { "name": "Content-Type", "value": "application/json" }] },
+        "sendBody": true, "contentType": "json",
+        "body": "={\n  \"action\": \"enviar_nurturing\",\n  \"clint_id\": \"{{ $json.clint_id }}\",\n  \"telefone\": \"{{ $json.telefone }}\",\n  \"mensagem\": \"{{ $json.mensagem }}\",\n  \"sequencia\": \"{{ $json.sequencia }}\"\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "nur-010", "name": "DB: Atualizar Flag Nurturing",
+      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [1620, 240],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE leads SET\n  nurturing_7d_enviado  = CASE WHEN '{{ $('Montar Mensagem por Sequência').item.json.sequencia }}' = '7d'  THEN TRUE ELSE nurturing_7d_enviado END,\n  nurturing_7d_enviado_em = CASE WHEN '{{ $('Montar Mensagem por Sequência').item.json.sequencia }}' = '7d'  THEN NOW() ELSE nurturing_7d_enviado_em END,\n  nurturing_30d_enviado = CASE WHEN '{{ $('Montar Mensagem por Sequência').item.json.sequencia }}' = '30d' THEN TRUE ELSE nurturing_30d_enviado END,\n  nurturing_30d_enviado_em = CASE WHEN '{{ $('Montar Mensagem por Sequência').item.json.sequencia }}' = '30d' THEN NOW() ELSE nurturing_30d_enviado_em END,\n  nurturing_60d_enviado = CASE WHEN '{{ $('Montar Mensagem por Sequência').item.json.sequencia }}' = '60d' THEN TRUE ELSE nurturing_60d_enviado END,\n  nurturing_60d_enviado_em = CASE WHEN '{{ $('Montar Mensagem por Sequência').item.json.sequencia }}' = '60d' THEN NOW() ELSE nurturing_60d_enviado_em END\nWHERE id = {{ $('Montar Mensagem por Sequência').item.json.id }};",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    { "id": "nur-011", "name": "Nada", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [1020, 480], "parameters": {} }
+  ],
+  "connections": {
+    "Todo dia às 9h30": { "main": [[{ "node": "DB: Leads para Nurturing 7 dias", "type": "main", "index": 0 }], [{ "node": "DB: Leads para Nurturing 30 dias", "type": "main", "index": 0 }], [{ "node": "DB: Leads para Nurturing 60 dias", "type": "main", "index": 0 }]] },
+    "DB: Leads para Nurturing 7 dias":  { "main": [[{ "node": "Juntar Todos os Leads", "type": "main", "index": 0 }]] },
+    "DB: Leads para Nurturing 30 dias": { "main": [[{ "node": "Juntar Todos os Leads", "type": "main", "index": 1 }]] },
+    "DB: Leads para Nurturing 60 dias": { "main": [[{ "node": "Juntar Todos os Leads", "type": "main", "index": 2 }]] },
+    "Juntar Todos os Leads": { "main": [[{ "node": "Há leads para nutrir?", "type": "main", "index": 0 }]] },
+    "Há leads para nutrir?": { "main": [[{ "node": "Loop", "type": "main", "index": 0 }], [{ "node": "Nada", "type": "main", "index": 0 }]] },
+    "Loop": { "main": [[{ "node": "Montar Mensagem por Sequência", "type": "main", "index": 0 }]] },
+    "Montar Mensagem por Sequência": { "main": [[{ "node": "🔵 CLINT: Enviar MSG Nurturing", "type": "main", "index": 0 }]] },
+    "🔵 CLINT: Enviar MSG Nurturing": { "main": [[{ "node": "DB: Atualizar Flag Nurturing", "type": "main", "index": 0 }]] }
+  },
+  "active": false, "settings": { "executionOrder": "v1" }, "pinData": {}
+}

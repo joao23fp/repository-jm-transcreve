@@ -1,0 +1,61 @@
+{
+  "name": "ODARA | 07a - Automação Oferta de Renovação",
+  "nodes": [
+    {
+      "id": "ren-001", "name": "Todo dia às 9h",
+      "type": "n8n-nodes-base.scheduleTrigger", "typeVersion": 1.1, "position": [100, 300],
+      "parameters": { "rule": { "interval": [{ "field": "cronExpression", "expression": "0 9 * * *" }] } }
+    },
+    {
+      "id": "ren-002", "name": "DB: Buscar Protocolos com 2 Sessões Restantes",
+      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [320, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT v.id, v.belle_id, v.clint_card_id, v.belle_cliente_cod, v.nome_protocolo,\n  v.sessoes_total, v.sessoes_realizadas,\n  c.nome AS nome_cliente, c.celular AS celular_cliente\nFROM vendas v\nJOIN clientes c ON c.belle_id = v.belle_cliente_cod\nWHERE\n  v.status_plano = 'Aprovado'\n  AND v.renovacao_oferta_enviada = FALSE\n  AND (v.sessoes_total - v.sessoes_realizadas) <= 2\n  AND (v.sessoes_total - v.sessoes_realizadas) >= 0;",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    {
+      "id": "ren-003", "name": "Há renovações?",
+      "type": "n8n-nodes-base.if", "typeVersion": 2, "position": [540, 300],
+      "parameters": { "conditions": { "options": {}, "conditions": [{ "id": "c1", "leftValue": "={{ $input.all().length }}", "rightValue": 0, "operator": { "type": "number", "operation": "gt" } }], "combinator": "and" } }
+    },
+    {
+      "id": "ren-004", "name": "Loop",
+      "type": "n8n-nodes-base.splitInBatches", "typeVersion": 3, "position": [760, 200],
+      "parameters": { "batchSize": 1, "options": {} }
+    },
+    {
+      "id": "ren-005", "name": "🔵 CLINT: Enviar Oferta de Renovação",
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [960, 200],
+      "parameters": {
+        "method": "POST", "url": "https://SEU_DOMINIO_CLINT/api/messages/send",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "Bearer SEU_TOKEN_CLINT" }, { "name": "Content-Type", "value": "application/json" }] },
+        "sendBody": true, "contentType": "json",
+        "body": "={\n  \"action\": \"enviar_oferta_renovacao\",\n  \"telefone\": \"{{ $json.celular_cliente }}\",\n  \"mensagem\": \"{{ $json.nome_cliente }}, você está chegando ao final do seu protocolo {{ $json.nome_protocolo }}! 🎉\\n\\nQue tal garantir já a continuidade do seu tratamento? Nossos planos de renovação têm condições especiais para quem já é nossa paciente! 💆‍♀️\\n\\nFale com a gente e vamos cuidar de você! 💙\",\n  \"card_id\": \"{{ $json.clint_card_id }}\",\n  \"criar_tarefa\": true,\n  \"titulo_tarefa\": \"Renovação de protocolo — {{ $json.nome_cliente }}\"\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "ren-006", "name": "DB: Marcar Oferta Enviada",
+      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [1160, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE vendas SET renovacao_oferta_enviada = TRUE, renovacao_enviada_em = NOW() WHERE id = {{ $json.id }};",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    { "id": "ren-007", "name": "Nada hoje", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [760, 420], "parameters": {} }
+  ],
+  "connections": {
+    "Todo dia às 9h": { "main": [[{ "node": "DB: Buscar Protocolos com 2 Sessões Restantes", "type": "main", "index": 0 }]] },
+    "DB: Buscar Protocolos com 2 Sessões Restantes": { "main": [[{ "node": "Há renovações?", "type": "main", "index": 0 }]] },
+    "Há renovações?": { "main": [[{ "node": "Loop", "type": "main", "index": 0 }], [{ "node": "Nada hoje", "type": "main", "index": 0 }]] },
+    "Loop": { "main": [[{ "node": "🔵 CLINT: Enviar Oferta de Renovação", "type": "main", "index": 0 }]] },
+    "🔵 CLINT: Enviar Oferta de Renovação": { "main": [[{ "node": "DB: Marcar Oferta Enviada", "type": "main", "index": 0 }]] }
+  },
+  "active": false, "settings": { "executionOrder": "v1" }, "pinData": {}
+}

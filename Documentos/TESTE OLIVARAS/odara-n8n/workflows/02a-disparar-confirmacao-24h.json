@@ -1,0 +1,153 @@
+{
+  "name": "ODARA | 02a - Disparar Confirmação 24h Antes",
+  "nodes": [
+    {
+      "id": "c24-001",
+      "name": "A cada 1 hora",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [100, 300],
+      "parameters": {
+        "rule": { "interval": [{ "field": "hours", "hoursInterval": 1 }] }
+      }
+    },
+    {
+      "id": "c24-002",
+      "name": "DB: Buscar Agendamentos para Confirmar",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [320, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  a.id,\n  a.belle_id,\n  a.clint_card_id,\n  a.nome_cliente,\n  a.celular_cliente,\n  a.data_hora,\n  a.hr_consulta,\n  a.dt_agenda,\n  a.servicos,\n  a.nome_profissional\nFROM agendamentos a\nWHERE\n  a.status = 'Marcado'\n  AND a.confirmacao_enviada = FALSE\n  AND a.data_hora IS NOT NULL\n  AND a.data_hora > NOW() + INTERVAL '23 hours'\n  AND a.data_hora < NOW() + INTERVAL '25 hours'\nORDER BY a.data_hora ASC;",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    {
+      "id": "c24-003",
+      "name": "Há agendamentos para confirmar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [540, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "cond-c24-001",
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "c24-004",
+      "name": "Loop por Agendamento",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [760, 200],
+      "parameters": { "batchSize": 1, "options": {} }
+    },
+    {
+      "id": "c24-005",
+      "name": "Montar Dados da Mensagem",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 200],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const a = $input.item.json;\n\n// Formatar data/hora\nconst dataHora = new Date(a.data_hora);\nconst diaSemana = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'][dataHora.getDay()];\nconst dia  = String(dataHora.getDate()).padStart(2,'0');\nconst mes  = String(dataHora.getMonth()+1).padStart(2,'0');\nconst hora = `${String(dataHora.getHours()).padStart(2,'0')}:${String(dataHora.getMinutes()).padStart(2,'0')}`;\n\n// Extrair nomes dos serviços\nlet servicos = [];\ntry { servicos = JSON.parse(a.servicos || '[]'); } catch(e) {}\nconst nomeServico = servicos.map(s => s.nome).join(', ') || 'seu procedimento';\n\nreturn {\n  json: {\n    ...a,\n    data_formatada: `${diaSemana}, ${dia}/${mes}`,\n    hora_formatada: hora,\n    nome_servico: nomeServico,\n    mensagem_confirmacao: `Olá ${a.nome_cliente}! 😊\\n\\nLembramos que você tem um agendamento amanhã:\\n📅 ${diaSemana}, ${dia}/${mes} às ${hora}\\n💆 ${nomeServico}\\n\\nPor favor, confirme sua presença:\\n✅ CONFIRMAR\\n❌ CANCELAR`\n  }\n};"
+      }
+    },
+    {
+      "id": "c24-006",
+      "name": "🔵 CLINT: Enviar MSG Confirmação com Botões",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1160, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "https://SEU_DOMINIO_CLINT/api/messages/send",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer SEU_TOKEN_CLINT" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"action\": \"enviar_confirmacao_24h\",\n  \"agendamento_belle_id\": {{ $json.belle_id }},\n  \"agendamento_db_id\": {{ $json.id }},\n  \"telefone\": \"{{ $json.celular_cliente }}\",\n  \"mensagem\": \"{{ $json.mensagem_confirmacao }}\",\n  \"botoes\": [\n    { \"id\": \"confirmar\", \"texto\": \"✅ Confirmar\" },\n    { \"id\": \"cancelar\",  \"texto\": \"❌ Cancelar\" }\n  ],\n  \"metadata\": {\n    \"tipo\": \"confirmacao_24h\",\n    \"agendamento_id\": {{ $json.id }},\n    \"data_hora\": \"{{ $json.data_hora }}\"\n  }\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "c24-007",
+      "name": "DB: Marcar Confirmação como Enviada",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1380, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE agendamentos\nSET confirmacao_enviada = TRUE,\n    confirmacao_enviada_em = NOW()\nWHERE id = {{ $('Montar Dados da Mensagem').item.json.id }}\nRETURNING id, belle_id, nome_cliente;",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    {
+      "id": "c24-008",
+      "name": "DB: Log da Mensagem",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1580, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO mensagens_log (agendamento_id, tipo, mensagem, enviada_em)\nVALUES (\n  {{ $('Montar Dados da Mensagem').item.json.id }},\n  'confirmacao_24h',\n  '{{ $('Montar Dados da Mensagem').item.json.mensagem_confirmacao.replace(/'/g, \"''\") }}',\n  NOW()\n);",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    {
+      "id": "c24-009",
+      "name": "Sem agendamentos — parar",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [760, 420],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "A cada 1 hora": {
+      "main": [[{ "node": "DB: Buscar Agendamentos para Confirmar", "type": "main", "index": 0 }]]
+    },
+    "DB: Buscar Agendamentos para Confirmar": {
+      "main": [[{ "node": "Há agendamentos para confirmar?", "type": "main", "index": 0 }]]
+    },
+    "Há agendamentos para confirmar?": {
+      "main": [
+        [{ "node": "Loop por Agendamento", "type": "main", "index": 0 }],
+        [{ "node": "Sem agendamentos — parar", "type": "main", "index": 0 }]
+      ]
+    },
+    "Loop por Agendamento": {
+      "main": [[{ "node": "Montar Dados da Mensagem", "type": "main", "index": 0 }]]
+    },
+    "Montar Dados da Mensagem": {
+      "main": [[{ "node": "🔵 CLINT: Enviar MSG Confirmação com Botões", "type": "main", "index": 0 }]]
+    },
+    "🔵 CLINT: Enviar MSG Confirmação com Botões": {
+      "main": [[{ "node": "DB: Marcar Confirmação como Enviada", "type": "main", "index": 0 }]]
+    },
+    "DB: Marcar Confirmação como Enviada": {
+      "main": [[{ "node": "DB: Log da Mensagem", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

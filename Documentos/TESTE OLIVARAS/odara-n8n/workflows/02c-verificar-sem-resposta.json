@@ -1,0 +1,153 @@
+{
+  "name": "ODARA | 02c - Verificar Confirmações Sem Resposta",
+  "nodes": [
+    {
+      "id": "sr-001",
+      "name": "A cada 30 minutos",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [100, 300],
+      "parameters": {
+        "rule": { "interval": [{ "field": "minutes", "minutesInterval": 30 }] }
+      }
+    },
+    {
+      "id": "sr-002",
+      "name": "Config: HORAS_SEM_RESPOSTA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [320, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ⚠️ DEFINA O VALOR ABAIXO após alinhar com a equipe (ver VARIAVEIS.md)\nconst HORAS_SEM_RESPOSTA_CONFIRMACAO = 4; // horas antes do atendimento para criar tarefa\n\nreturn [{ json: { HORAS_SEM_RESPOSTA_CONFIRMACAO } }];"
+      }
+    },
+    {
+      "id": "sr-003",
+      "name": "DB: Buscar Sem Resposta Dentro do Prazo",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [540, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  a.id,\n  a.belle_id,\n  a.clint_card_id,\n  a.nome_cliente,\n  a.celular_cliente,\n  a.data_hora,\n  a.confirmacao_enviada_em\nFROM agendamentos a\nWHERE\n  a.status = 'Marcado'\n  AND a.confirmacao_enviada = TRUE\n  AND a.confirmacao_resposta IS NULL\n  AND a.tarefa_sem_resposta_criada = FALSE\n  AND a.data_hora IS NOT NULL\n  AND a.data_hora < NOW() + INTERVAL '{{ $json.HORAS_SEM_RESPOSTA_CONFIRMACAO }} hours'\n  AND a.data_hora > NOW()\nORDER BY a.data_hora ASC;",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    {
+      "id": "sr-004",
+      "name": "Há sem resposta?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [760, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "cond-sr-001",
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "sr-005",
+      "name": "Loop por Sem Resposta",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [980, 200],
+      "parameters": { "batchSize": 1, "options": {} }
+    },
+    {
+      "id": "sr-006",
+      "name": "🔵 CLINT: Criar Tarefa — Confirmar Manualmente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1180, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "https://SEU_DOMINIO_CLINT/api/tasks",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer SEU_TOKEN_CLINT" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"action\": \"criar_tarefa\",\n  \"card_id\": \"{{ $json.clint_card_id }}\",\n  \"titulo\": \"⚠️ Confirmar presença manualmente — {{ $json.nome_cliente }}\",\n  \"descricao\": \"Paciente não respondeu a confirmação automática. Atendimento em {{ $json.data_hora }}. Entre em contato agora!\",\n  \"responsavel\": \"vendedora\",\n  \"prioridade\": \"urgente\"\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "sr-007",
+      "name": "DB: Marcar Tarefa Criada",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1380, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE agendamentos\nSET tarefa_sem_resposta_criada = TRUE,\n    confirmacao_resposta = 'sem_resposta'\nWHERE id = {{ $json.id }};",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    {
+      "id": "sr-008",
+      "name": "DB: Registrar Tarefa no Banco",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1580, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO tarefas (agendamento_id, tipo, descricao, responsavel, prioridade)\nVALUES (\n  {{ $('Loop por Sem Resposta').item.json.id }},\n  'confirmacao_manual',\n  'Paciente não respondeu confirmação automática. Confirmar presença manualmente.',\n  'vendedora',\n  'urgente'\n);",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    {
+      "id": "sr-009",
+      "name": "Nenhuma pendência",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [980, 420],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "A cada 30 minutos": {
+      "main": [[{ "node": "Config: HORAS_SEM_RESPOSTA", "type": "main", "index": 0 }]]
+    },
+    "Config: HORAS_SEM_RESPOSTA": {
+      "main": [[{ "node": "DB: Buscar Sem Resposta Dentro do Prazo", "type": "main", "index": 0 }]]
+    },
+    "DB: Buscar Sem Resposta Dentro do Prazo": {
+      "main": [[{ "node": "Há sem resposta?", "type": "main", "index": 0 }]]
+    },
+    "Há sem resposta?": {
+      "main": [
+        [{ "node": "Loop por Sem Resposta", "type": "main", "index": 0 }],
+        [{ "node": "Nenhuma pendência",      "type": "main", "index": 0 }]
+      ]
+    },
+    "Loop por Sem Resposta": {
+      "main": [[{ "node": "🔵 CLINT: Criar Tarefa — Confirmar Manualmente", "type": "main", "index": 0 }]]
+    },
+    "🔵 CLINT: Criar Tarefa — Confirmar Manualmente": {
+      "main": [[{ "node": "DB: Marcar Tarefa Criada", "type": "main", "index": 0 }]]
+    },
+    "DB: Marcar Tarefa Criada": {
+      "main": [[{ "node": "DB: Registrar Tarefa no Banco", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

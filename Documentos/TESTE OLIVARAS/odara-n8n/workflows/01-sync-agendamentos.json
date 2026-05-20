@@ -1,0 +1,173 @@
+{
+  "name": "ODARA | 01 - Sync Agendamentos Belle → DB",
+  "nodes": [
+    {
+      "id": "sync-001",
+      "name": "A cada 5 minutos",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [0, 300],
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "minutes", "minutesInterval": 5 }]
+        }
+      }
+    },
+    {
+      "id": "sync-002",
+      "name": "Preparar 3 Requisições",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const now = new Date();\nconst fmt = (d) => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;\n\nconst hoje = fmt(now);\nconst dtFim7 = new Date(now);\ndtFim7.setDate(dtFim7.getDate() + 7);\nconst fimSemana = fmt(dtFim7);\n\n// Retorna 3 itens — um por endpoint\nreturn [\n  { json: { url: 'agendamentos',            dtInicio: hoje,      dtFim: fimSemana, tipo: 'abertos'     } },\n  { json: { url: 'agendamentos/finalizados', dtInicio: hoje,      dtFim: hoje,      tipo: 'finalizados'  } },\n  { json: { url: 'agendamentos/cancelados',  dtInicio: hoje,      dtFim: hoje,      tipo: 'cancelados'   } }\n];"
+      }
+    },
+    {
+      "id": "sync-003",
+      "name": "BELLE: Buscar Agendamentos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://app.bellesoftware.com.br/api/release/controller/IntegracaoExterna/v1.0/{{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "669ebde7afafcd939eff35cc43a594cb" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "codEstab", "value": "1" },
+            { "name": "dtInicio", "value": "={{ $json.dtInicio }}" },
+            { "name": "dtFim",    "value": "={{ $json.dtFim }}" }
+          ]
+        },
+        "options": {
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      }
+    },
+    {
+      "id": "sync-004",
+      "name": "Combinar e Normalizar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const agendamentos = [];\n\nconst normalizar = (a) => {\n  const dtParts = (a.dtAgenda || '').split('/');\n  const dataISO = dtParts.length === 3 ? `${dtParts[2]}-${dtParts[1]}-${dtParts[0]}` : null;\n  const dataHora = dataISO && a.hrConsulta ? new Date(`${dataISO}T${a.hrConsulta}:00`) : null;\n  return {\n    json: {\n      belle_id:          a.codConsulta,\n      belle_cliente_cod: a.cliente?.cod || '',\n      nome_cliente:      (a.cliente?.nome || '').replace(/'/g, \"''\"),\n      celular_cliente:   a.cliente?.celular || '',\n      cod_profissional:  a.prof?.cod || '',\n      nome_profissional: (a.prof?.nome || '').replace(/'/g, \"''\"),\n      nome_sala:         a.sala?.nome || '',\n      servicos:          JSON.stringify(a.servicos || []),\n      dt_agenda:         dataISO,\n      hr_consulta:       a.hrConsulta || '',\n      data_hora:         dataHora ? dataHora.toISOString() : null,\n      status:            a.status || '',\n      tipo:              a.tipo || '',\n      observacao:        (a.observacao || '').replace(/'/g, \"''\")\n    }\n  };\n};\n\nfor (const item of $input.all()) {\n  const data = item.json;\n  if (Array.isArray(data)) {\n    for (const a of data) {\n      if (a.codConsulta) agendamentos.push(normalizar(a));\n    }\n  } else if (data && data.codConsulta) {\n    agendamentos.push(normalizar(data));\n  }\n}\n\nconsole.log(`Total de agendamentos: ${agendamentos.length}`);\nreturn agendamentos;"
+      }
+    },
+    {
+      "id": "sync-005",
+      "name": "DB: Upsert Agendamento",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [880, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO agendamentos (\n  belle_id, belle_cliente_cod, nome_cliente, celular_cliente,\n  cod_profissional, nome_profissional, nome_sala, servicos,\n  dt_agenda, hr_consulta, data_hora, status, tipo, observacao, sinc_em\n) VALUES (\n  {{ $json.belle_id }},\n  '{{ $json.belle_cliente_cod }}',\n  '{{ $json.nome_cliente }}',\n  '{{ $json.celular_cliente }}',\n  '{{ $json.cod_profissional }}',\n  '{{ $json.nome_profissional }}',\n  '{{ $json.nome_sala }}',\n  '{{ $json.servicos }}'::jsonb,\n  {{ $json.dt_agenda ? `'${$json.dt_agenda}'` : 'NULL' }},\n  '{{ $json.hr_consulta }}',\n  {{ $json.data_hora ? `'${$json.data_hora}'` : 'NULL' }},\n  '{{ $json.status }}',\n  '{{ $json.tipo }}',\n  '{{ $json.observacao }}',\n  NOW()\n)\nON CONFLICT (belle_id) DO UPDATE SET\n  status            = EXCLUDED.status,\n  servicos          = EXCLUDED.servicos,\n  nome_profissional = EXCLUDED.nome_profissional,\n  nome_sala         = EXCLUDED.nome_sala,\n  data_hora         = EXCLUDED.data_hora,\n  sinc_em           = NOW(),\n  atualizado_em     = NOW()\nRETURNING id, belle_id, (xmax = 0) AS is_new, status;",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": { "id": "6W46gLQ9cENri003", "name": "PostgreSQL Odara" }
+      }
+    },
+    {
+      "id": "sync-006",
+      "name": "É agendamento novo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1100, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "cond-001",
+              "leftValue": "={{ $json.is_new }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "sync-007",
+      "name": "🔵 CLINT: Criar Card do Agendamento",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1300, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "https://SEU_DOMINIO_CLINT/api/deals",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer SEU_TOKEN_CLINT" },
+            { "name": "Content-Type",  "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"action\": \"criar_card_agendamento\",\n  \"belle_id\": {{ $json.belle_id }},\n  \"nome_cliente\": \"{{ $json.nome_cliente }}\",\n  \"data_hora\": \"{{ $json.data_hora }}\",\n  \"servicos\": {{ $json.servicos }},\n  \"profissional\": \"{{ $json.nome_profissional }}\",\n  \"status\": \"{{ $json.status }}\"\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "sync-008",
+      "name": "🔵 CLINT: Atualizar Status do Card",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1300, 420],
+      "parameters": {
+        "method": "PUT",
+        "url": "https://SEU_DOMINIO_CLINT/api/deals/status",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer SEU_TOKEN_CLINT" },
+            { "name": "Content-Type",  "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"action\": \"atualizar_status_agendamento\",\n  \"belle_id\": {{ $json.belle_id }},\n  \"novo_status\": \"{{ $json.status }}\"\n}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "A cada 5 minutos": {
+      "main": [[{ "node": "Preparar 3 Requisições", "type": "main", "index": 0 }]]
+    },
+    "Preparar 3 Requisições": {
+      "main": [[{ "node": "BELLE: Buscar Agendamentos", "type": "main", "index": 0 }]]
+    },
+    "BELLE: Buscar Agendamentos": {
+      "main": [[{ "node": "Combinar e Normalizar", "type": "main", "index": 0 }]]
+    },
+    "Combinar e Normalizar": {
+      "main": [[{ "node": "DB: Upsert Agendamento", "type": "main", "index": 0 }]]
+    },
+    "DB: Upsert Agendamento": {
+      "main": [[{ "node": "É agendamento novo?", "type": "main", "index": 0 }]]
+    },
+    "É agendamento novo?": {
+      "main": [
+        [{ "node": "🔵 CLINT: Criar Card do Agendamento", "type": "main", "index": 0 }],
+        [{ "node": "🔵 CLINT: Atualizar Status do Card",  "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

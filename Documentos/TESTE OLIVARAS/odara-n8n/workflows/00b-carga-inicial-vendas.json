@@ -1,0 +1,169 @@
+{
+  "name": "ODARA | 00b - Carga Inicial de Vendas/Protocolos (rodar 1x)",
+  "nodes": [
+    {
+      "id": "cv-001",
+      "name": "Executar Manualmente",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 300],
+      "parameters": {}
+    },
+    {
+      "id": "cv-002",
+      "name": "Gerar Intervalos de 3 Meses (2020 → hoje)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Belle limita 3 meses por requisição\n// Gera intervalos de 3 meses desde Jan/2020 até hoje\nconst intervalos = [];\n\nconst fmt = (d) => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;\n\nlet inicio = new Date(2020, 0, 1); // 01/01/2020\nconst hoje = new Date();\n\nwhile (inicio <= hoje) {\n  const fim = new Date(inicio);\n  fim.setMonth(fim.getMonth() + 3);\n  fim.setDate(fim.getDate() - 1); // último dia do intervalo\n\n  const fimReal = fim > hoje ? hoje : fim;\n\n  intervalos.push({\n    json: {\n      dtInicio: fmt(inicio),\n      dtFim:    fmt(fimReal)\n    }\n  });\n\n  inicio.setMonth(inicio.getMonth() + 3);\n}\n\nconsole.log(`Total de intervalos: ${intervalos.length}`);\nreturn intervalos;"
+      }
+    },
+    {
+      "id": "cv-003",
+      "name": "BELLE: Buscar Vendas de Planos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "https://app.bellesoftware.com.br/api/release/controller/IntegracaoExterna/v1.0/venda_planos",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "669ebde7afafcd939eff35cc43a594cb" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "codEstab",    "value": "1" },
+            { "name": "dtInicio",    "value": "={{ $json.dtInicio }}" },
+            { "name": "dtFim",       "value": "={{ $json.dtFim }}" },
+            { "name": "tipoPeriodo", "value": "Venda" },
+            { "name": "statusPlano", "value": "Aprovado" }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": { "responseFormat": "json" }
+          }
+        }
+      }
+    },
+    {
+      "id": "cv-004",
+      "name": "Filtrar e Normalizar Vendas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const vendas = [];\n\nconst parseDateBR = (s) => {\n  if (!s) return null;\n  const p = s.split('/');\n  if (p.length === 3) return `${p[2]}-${p[1]}-${p[0]}`;\n  return null;\n};\n\nconst parseValor = (v) => {\n  if (!v) return 0;\n  return parseFloat(String(v).replace(/\\./g, '').replace(',', '.')) || 0;\n};\n\nfor (const item of $input.all()) {\n  const data = item.json;\n  const lista = Array.isArray(data) ? data : (data.codOrcamento ? [data] : []);\n\n  for (const v of lista) {\n    if (!v.codOrcamento) continue;\n\n    // Extrair codCliente do campo 'cliente': '1 - José da Silva'\n    const codClienteMatch = String(v.cliente || '').match(/^(\\d+)/);\n    const codCliente = codClienteMatch ? parseInt(codClienteMatch[1]) : null;\n\n    // Total de sessões somando qtdSessoes de todos os serviços\n    const servicos = v.servicos || [];\n    const sessoesTotal = servicos.reduce((acc, s) => {\n      return acc + (parseInt(s.qtdSessoes || s.qtdSes || s.sessoes || 0));\n    }, 0);\n\n    vendas.push({\n      json: {\n        belle_id:          v.codOrcamento,\n        belle_cliente_cod: codCliente,\n        id_venda:          v.idVenda || null,\n        nome_protocolo:    (v.nomePlano || v.descricao || '').replace(/'/g, \"''\"),\n        tipo_plano:        v.tipoPlano || '',\n        servicos:          JSON.stringify(servicos),\n        valor_bruto:       parseValor(v.preco),\n        valor_final:       parseValor(v.precoFinal),\n        sessoes_total:     sessoesTotal,\n        data_venda:        parseDateBR(v.dataVenda),\n        vendedor:          (v.vendedor || '').replace(/'/g, \"''\"),\n        status_plano:      v.statusPlano || 'Aprovado'\n      }\n    });\n  }\n}\n\nconsole.log(`Total de vendas encontradas: ${vendas.length}`);\nreturn vendas;"
+      }
+    },
+    {
+      "id": "cv-005",
+      "name": "DB: Garantir Cliente Existe",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [880, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO clientes (belle_id, nome)\nVALUES ({{ $json.belle_cliente_cod }}, 'A sincronizar')\nON CONFLICT (belle_id) DO UPDATE SET belle_id = EXCLUDED.belle_id\nRETURNING id, belle_id;",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "6W46gLQ9cENri003",
+          "name": "PostgreSQL Odara"
+        }
+      }
+    },
+    {
+      "id": "cv-006",
+      "name": "BELLE: Buscar Saldo Atual do Plano",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "https://app.bellesoftware.com.br/api/release/controller/IntegracaoExterna/v1.0/cliente/planos",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "669ebde7afafcd939eff35cc43a594cb" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "codCliente", "value": "={{ $('Filtrar e Normalizar Vendas').item.json.belle_cliente_cod }}" },
+            { "name": "codEstab",   "value": "1" }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": { "responseFormat": "json" }
+          }
+        }
+      }
+    },
+    {
+      "id": "cv-007",
+      "name": "Calcular Sessões Realizadas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, 300],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const venda = $('Filtrar e Normalizar Vendas').item.json;\nconst planosCliente = $input.item.json;\n\nconst planos = Array.isArray(planosCliente) ? planosCliente : (planosCliente.codPlano ? [planosCliente] : []);\nconst planoMatch = planos.find(p => String(p.codPlano) === String(venda.belle_id));\n\nlet sessoesRealizadas = 0;\n\nif (planoMatch && planoMatch.servicos) {\n  const saldoRestante = planoMatch.servicos.reduce((acc, s) => {\n    return acc + (parseInt(s.saldoRestante) || 0);\n  }, 0);\n  sessoesRealizadas = Math.max(0, (venda.sessoes_total || 0) - saldoRestante);\n}\n\nreturn {\n  json: {\n    ...venda,\n    sessoes_realizadas: sessoesRealizadas\n  }\n};"
+      }
+    },
+    {
+      "id": "cv-008",
+      "name": "DB: Upsert Venda",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1540, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO vendas (\n  belle_id, belle_cliente_cod, nome_protocolo, tipo_plano,\n  servicos, valor_bruto, valor_final, sessoes_total,\n  sessoes_realizadas, data_venda, vendedor, status_plano\n) VALUES (\n  {{ $json.belle_id }},\n  {{ $json.belle_cliente_cod || 'NULL' }},\n  '{{ $json.nome_protocolo }}',\n  '{{ $json.tipo_plano }}',\n  '{{ $json.servicos }}'::jsonb,\n  {{ $json.valor_bruto || 0 }},\n  {{ $json.valor_final || 0 }},\n  {{ $json.sessoes_total || 0 }},\n  {{ $json.sessoes_realizadas || 0 }},\n  {{ $json.data_venda ? `'${$json.data_venda}'` : 'NULL' }},\n  '{{ $json.vendedor }}',\n  '{{ $json.status_plano }}'\n)\nON CONFLICT (belle_id) DO UPDATE SET\n  sessoes_realizadas = EXCLUDED.sessoes_realizadas,\n  status_plano       = EXCLUDED.status_plano,\n  valor_final        = EXCLUDED.valor_final,\n  atualizado_em      = NOW()\nRETURNING id, belle_id, nome_protocolo, sessoes_total, sessoes_realizadas;",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "6W46gLQ9cENri003",
+          "name": "PostgreSQL Odara"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Executar Manualmente": {
+      "main": [[{ "node": "Gerar Intervalos de 3 Meses (2020 → hoje)", "type": "main", "index": 0 }]]
+    },
+    "Gerar Intervalos de 3 Meses (2020 → hoje)": {
+      "main": [[{ "node": "BELLE: Buscar Vendas de Planos", "type": "main", "index": 0 }]]
+    },
+    "BELLE: Buscar Vendas de Planos": {
+      "main": [[{ "node": "Filtrar e Normalizar Vendas", "type": "main", "index": 0 }]]
+    },
+    "Filtrar e Normalizar Vendas": {
+      "main": [[{ "node": "DB: Garantir Cliente Existe", "type": "main", "index": 0 }]]
+    },
+    "DB: Garantir Cliente Existe": {
+      "main": [[{ "node": "BELLE: Buscar Saldo Atual do Plano", "type": "main", "index": 0 }]]
+    },
+    "BELLE: Buscar Saldo Atual do Plano": {
+      "main": [[{ "node": "Calcular Sessões Realizadas", "type": "main", "index": 0 }]]
+    },
+    "Calcular Sessões Realizadas": {
+      "main": [[{ "node": "DB: Upsert Venda", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

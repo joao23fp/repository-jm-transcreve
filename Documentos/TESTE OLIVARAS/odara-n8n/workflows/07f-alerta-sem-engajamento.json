@@ -1,0 +1,68 @@
+{
+  "name": "ODARA | 07f - Alerta Paciente Sem Engajamento",
+  "nodes": [
+    {
+      "id": "eng-001", "name": "Todo dia às 9h",
+      "type": "n8n-nodes-base.scheduleTrigger", "typeVersion": 1.1, "position": [100, 300],
+      "parameters": { "rule": { "interval": [{ "field": "cronExpression", "expression": "0 9 * * *" }] } }
+    },
+    {
+      "id": "eng-002", "name": "Config: DIAS_SEM_ENGAJAMENTO",
+      "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [320, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ⚠️ Defina o valor (ver VARIAVEIS.md)\nconst DIAS_SEM_AGENDAMENTO_ALERTA = 14;\nreturn [{ json: { DIAS_SEM_AGENDAMENTO_ALERTA } }];"
+      }
+    },
+    {
+      "id": "eng-003", "name": "DB: Protocolos Ativos Sem Agendamento",
+      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [540, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  v.id AS venda_id, v.belle_id, v.clint_card_id, v.nome_protocolo,\n  v.sessoes_realizadas, v.sessoes_total,\n  c.nome AS nome_cliente, c.celular AS celular_cliente,\n  MAX(a.data_hora) AS ultimo_agendamento\nFROM vendas v\nJOIN clientes c ON c.belle_id = v.belle_cliente_cod\nLEFT JOIN agendamentos a ON a.belle_cliente_cod = v.belle_cliente_cod::varchar\n  AND a.status != 'Cancelado'\nWHERE\n  v.status_plano = 'Aprovado'\n  AND (v.sessoes_total - v.sessoes_realizadas) > 0\nGROUP BY v.id, v.belle_id, v.clint_card_id, v.nome_protocolo,\n  v.sessoes_realizadas, v.sessoes_total, c.nome, c.celular\nHAVING\n  MAX(a.data_hora) IS NULL\n  OR MAX(a.data_hora) < NOW() - INTERVAL '{{ $json.DIAS_SEM_AGENDAMENTO_ALERTA }} days';",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    {
+      "id": "eng-004", "name": "Há inativos?",
+      "type": "n8n-nodes-base.if", "typeVersion": 2, "position": [760, 300],
+      "parameters": { "conditions": { "options": {}, "conditions": [{ "id": "c1", "leftValue": "={{ $input.all().length }}", "rightValue": 0, "operator": { "type": "number", "operation": "gt" } }], "combinator": "and" } }
+    },
+    {
+      "id": "eng-005", "name": "Loop", "type": "n8n-nodes-base.splitInBatches", "typeVersion": 3, "position": [980, 200], "parameters": { "batchSize": 1, "options": {} }
+    },
+    {
+      "id": "eng-006", "name": "🔵 CLINT: Criar Tarefa Paciente Sem Engajamento",
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [1180, 200],
+      "parameters": {
+        "method": "POST", "url": "https://SEU_DOMINIO_CLINT/api/tasks",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "Bearer SEU_TOKEN_CLINT" }, { "name": "Content-Type", "value": "application/json" }] },
+        "sendBody": true, "contentType": "json",
+        "body": "={\n  \"action\": \"criar_tarefa_engajamento\",\n  \"card_id\": \"{{ $json.clint_card_id }}\",\n  \"titulo\": \"⚠️ Paciente sem engajamento — {{ $json.nome_cliente }}\",\n  \"descricao\": \"{{ $json.nome_cliente }} tem protocolo {{ $json.nome_protocolo }} ativo ({{ $json.sessoes_total - $json.sessoes_realizadas }} sessões restantes) mas não tem agendamento há mais de {{ $json.DIAS_SEM_AGENDAMENTO_ALERTA || 14 }} dias.\",\n  \"responsavel\": \"especialista\",\n  \"prioridade\": \"alta\"\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "eng-007", "name": "DB: Registrar Tarefa",
+      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [1380, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO tarefas (venda_id, tipo, descricao, responsavel, prioridade)\nVALUES ({{ $json.venda_id }}, 'sem_engajamento', 'Protocolo ativo sem agendamento recente.', 'especialista', 'alta')\nON CONFLICT DO NOTHING;",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+    },
+    { "id": "eng-008", "name": "Nada", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [980, 420], "parameters": {} }
+  ],
+  "connections": {
+    "Todo dia às 9h": { "main": [[{ "node": "Config: DIAS_SEM_ENGAJAMENTO", "type": "main", "index": 0 }]] },
+    "Config: DIAS_SEM_ENGAJAMENTO": { "main": [[{ "node": "DB: Protocolos Ativos Sem Agendamento", "type": "main", "index": 0 }]] },
+    "DB: Protocolos Ativos Sem Agendamento": { "main": [[{ "node": "Há inativos?", "type": "main", "index": 0 }]] },
+    "Há inativos?": { "main": [[{ "node": "Loop", "type": "main", "index": 0 }], [{ "node": "Nada", "type": "main", "index": 0 }]] },
+    "Loop": { "main": [[{ "node": "🔵 CLINT: Criar Tarefa Paciente Sem Engajamento", "type": "main", "index": 0 }]] },
+    "🔵 CLINT: Criar Tarefa Paciente Sem Engajamento": { "main": [[{ "node": "DB: Registrar Tarefa", "type": "main", "index": 0 }]] }
+  },
+  "active": false, "settings": { "executionOrder": "v1" }, "pinData": {}
+}
