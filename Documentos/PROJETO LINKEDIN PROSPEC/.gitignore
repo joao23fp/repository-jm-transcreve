@@ -8,6 +8,10 @@ linkedin-bot/profiles/
 # N8N data
 .n8n/
 
+# SaaS platform generated files
+saas-platform/node_modules/
+saas-platform/dist/
+
 # OS
 .DS_Store
 Thumbs.db
