@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS clientes (
     id              SERIAL PRIMARY KEY,
     belle_id        INTEGER UNIQUE,
     clint_id        VARCHAR(100),
+    clint_contact_uuid VARCHAR(36),                          -- UUID do contato no Clint (adicionado 21/05/2026)
     nome            VARCHAR(255) NOT NULL,
     telefone        VARCHAR(30),
     celular         VARCHAR(30),
@@ -87,6 +88,8 @@ CREATE TABLE IF NOT EXISTS vendas (
     id                          SERIAL PRIMARY KEY,
     belle_id                    INTEGER UNIQUE,           -- codOrcamento / idVenda
     clint_card_id               VARCHAR(100),
+    clint_deal_uuid             VARCHAR(36),              -- UUID do deal no Clint (adicionado 21/05/2026)
+    clint_fields_synced         BOOLEAN DEFAULT FALSE,    -- dados do protocolo já enviados ao Clint
     cliente_id                  INTEGER REFERENCES clientes(id),
     belle_cliente_cod           INTEGER,
     nome_protocolo              VARCHAR(255),
@@ -117,9 +120,48 @@ CREATE TABLE IF NOT EXISTS vendas (
     atualizado_em               TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_vendas_belle_id   ON vendas(belle_id);
-CREATE INDEX IF NOT EXISTS idx_vendas_cliente_id ON vendas(cliente_id);
-CREATE INDEX IF NOT EXISTS idx_vendas_status     ON vendas(status_plano);
+CREATE INDEX IF NOT EXISTS idx_vendas_belle_id        ON vendas(belle_id);
+CREATE INDEX IF NOT EXISTS idx_vendas_cliente_id      ON vendas(cliente_id);
+CREATE INDEX IF NOT EXISTS idx_vendas_status          ON vendas(status_plano);
+CREATE INDEX IF NOT EXISTS idx_vendas_clint_deal_uuid ON vendas(clint_deal_uuid);
+
+-- ---------------------------------------------------------------
+-- SESSÕES REALIZADAS
+-- Populada pelo workflow 00d (a cada 30min) com base em agendamentos
+-- com status 'Atendido' cruzados com protocolos ativos da paciente
+-- ---------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS sessoes (
+    id                  SERIAL PRIMARY KEY,
+    venda_id            INTEGER REFERENCES vendas(id),
+    agendamento_id      INTEGER REFERENCES agendamentos(id),
+    cliente_id          INTEGER REFERENCES clientes(id),
+    belle_cliente_cod   VARCHAR(20),
+    servico_cod         VARCHAR(20),
+    servico_nome        VARCHAR(200),
+    numero_sessao       INTEGER,                          -- 1ª, 2ª, 3ª sessão do protocolo
+    data_realizada      DATE,
+    profissional        VARCHAR(100),
+    criado_em           TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessoes_venda_id    ON sessoes(venda_id);
+CREATE INDEX IF NOT EXISTS idx_sessoes_cliente_id  ON sessoes(cliente_id);
+CREATE INDEX IF NOT EXISTS idx_sessoes_data        ON sessoes(data_realizada);
+
+-- ---------------------------------------------------------------
+-- TABELA DE MAPEAMENTO: labels Clint → códigos de serviço Belle
+-- Populada pelo workflow MAP-C (execução única)
+-- belle_cod e belle_nome preenchidos manualmente após execução
+-- ---------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS servicos_mapeamento (
+    id              SERIAL PRIMARY KEY,
+    belle_cod       VARCHAR(20),
+    belle_nome      VARCHAR(200),
+    clint_label     VARCHAR(200) UNIQUE,
+    auto_matched    BOOLEAN DEFAULT FALSE,
+    ativo           BOOLEAN DEFAULT TRUE,
+    criado_em       TIMESTAMP DEFAULT NOW()
+);
 
 -- ---------------------------------------------------------------
 -- LEADS
