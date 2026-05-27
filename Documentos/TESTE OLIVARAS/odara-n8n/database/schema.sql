@@ -11,20 +11,29 @@ CREATE TABLE IF NOT EXISTS clientes (
     belle_id        INTEGER UNIQUE,
     clint_id        UUID,
     clint_contact_uuid UUID,
+    clint_deal_uuid    UUID,
     nome            VARCHAR(255) NOT NULL,
     telefone        VARCHAR(30),
     celular         VARCHAR(30),
+    celular2        VARCHAR(30),
     cpf             VARCHAR(20),
     email           VARCHAR(255),
     dt_nascimento   DATE,
+    dt_cadastro     DATE,
     sexo            VARCHAR(20),
     temperatura     VARCHAR(20),    -- Quente / Morno / Frio
     rating          SMALLINT,
     pontos          INTEGER,
+    profissao       VARCHAR(100),
     uf              VARCHAR(2),
     cidade          VARCHAR(100),
+    bairro          VARCHAR(100),
+    cep             VARCHAR(10),
+    endereco        VARCHAR(255),
+    num_endereco    VARCHAR(20),
     tipo_origem     VARCHAR(100),
     origem          VARCHAR(255),
+    tags            JSONB,
     observacao      TEXT,
     ativo           BOOLEAN DEFAULT TRUE,
     criado_em       TIMESTAMP DEFAULT NOW(),
@@ -76,10 +85,11 @@ CREATE TABLE IF NOT EXISTS agendamentos (
     atualizado_em               TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_agendamentos_belle_id   ON agendamentos(belle_id);
-CREATE INDEX IF NOT EXISTS idx_agendamentos_cliente_id ON agendamentos(cliente_id);
-CREATE INDEX IF NOT EXISTS idx_agendamentos_data_hora  ON agendamentos(data_hora);
-CREATE INDEX IF NOT EXISTS idx_agendamentos_status     ON agendamentos(status);
+CREATE INDEX IF NOT EXISTS idx_agendamentos_belle_id      ON agendamentos(belle_id);
+CREATE INDEX IF NOT EXISTS idx_agendamentos_cliente_id    ON agendamentos(cliente_id);
+CREATE INDEX IF NOT EXISTS idx_agendamentos_belle_cod     ON agendamentos(belle_cliente_cod);
+CREATE INDEX IF NOT EXISTS idx_agendamentos_data_hora     ON agendamentos(data_hora);
+CREATE INDEX IF NOT EXISTS idx_agendamentos_status        ON agendamentos(status);
 
 -- ---------------------------------------------------------------
 -- VENDAS / PROTOCOLOS
@@ -122,6 +132,7 @@ CREATE TABLE IF NOT EXISTS vendas (
 
 CREATE INDEX IF NOT EXISTS idx_vendas_belle_id        ON vendas(belle_id);
 CREATE INDEX IF NOT EXISTS idx_vendas_cliente_id      ON vendas(cliente_id);
+CREATE INDEX IF NOT EXISTS idx_vendas_belle_cod       ON vendas(belle_cliente_cod);
 CREATE INDEX IF NOT EXISTS idx_vendas_status          ON vendas(status_plano);
 CREATE INDEX IF NOT EXISTS idx_vendas_clint_deal_uuid ON vendas(clint_deal_uuid);
 
@@ -241,6 +252,30 @@ CREATE TABLE IF NOT EXISTS tarefas (
 
 CREATE INDEX IF NOT EXISTS idx_tarefas_cliente_id ON tarefas(cliente_id);
 CREATE INDEX IF NOT EXISTS idx_tarefas_status     ON tarefas(status);
+
+-- ---------------------------------------------------------------
+-- SYNC STATE — controle de timestamps dos pollings
+-- ---------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS sync_state (
+    chave        VARCHAR(100) PRIMARY KEY,
+    ultimo_sync  TIMESTAMP DEFAULT NOW(),
+    atualizado_em TIMESTAMP DEFAULT NOW()
+);
+
+-- ---------------------------------------------------------------
+-- LOG DE LEADS (auditoria de criação/vínculo com Clint)
+-- ---------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS odara_leads_log (
+    id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    belle_id         INTEGER,
+    clint_contact_uuid VARCHAR(100),
+    clint_deal_uuid    VARCHAR(100),
+    nome             VARCHAR(255),
+    telefone         VARCHAR(30),
+    email            VARCHAR(255),
+    acao             VARCHAR(50) DEFAULT 'criado',
+    criado_em        TIMESTAMP DEFAULT NOW()
+);
 
 -- ---------------------------------------------------------------
 -- FUNÇÃO: Atualiza updated_at automaticamente
