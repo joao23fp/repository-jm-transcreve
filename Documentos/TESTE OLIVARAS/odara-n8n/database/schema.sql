@@ -7,10 +7,10 @@
 -- CLIENTES
 -- ---------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS clientes (
-    id              SERIAL PRIMARY KEY,
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     belle_id        INTEGER UNIQUE,
-    clint_id        VARCHAR(100),
-    clint_contact_uuid VARCHAR(36),                          -- UUID do contato no Clint (adicionado 21/05/2026)
+    clint_id        UUID,
+    clint_contact_uuid UUID,
     nome            VARCHAR(255) NOT NULL,
     telefone        VARCHAR(30),
     celular         VARCHAR(30),
@@ -40,10 +40,10 @@ CREATE INDEX IF NOT EXISTS idx_clientes_clint_id  ON clientes(clint_id);
 -- AGENDAMENTOS
 -- ---------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS agendamentos (
-    id                          SERIAL PRIMARY KEY,
+    id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     belle_id                    INTEGER UNIQUE,           -- codConsulta da Belle
-    clint_card_id               VARCHAR(100),
-    cliente_id                  INTEGER REFERENCES clientes(id),
+    clint_card_id               UUID,
+    cliente_id                  UUID REFERENCES clientes(id),
     belle_cliente_cod           VARCHAR(20),
     nome_cliente                VARCHAR(255),
     celular_cliente             VARCHAR(30),
@@ -85,12 +85,12 @@ CREATE INDEX IF NOT EXISTS idx_agendamentos_status     ON agendamentos(status);
 -- VENDAS / PROTOCOLOS
 -- ---------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS vendas (
-    id                          SERIAL PRIMARY KEY,
+    id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     belle_id                    INTEGER UNIQUE,           -- codOrcamento / idVenda
-    clint_card_id               VARCHAR(100),
-    clint_deal_uuid             VARCHAR(36),              -- UUID do deal no Clint (adicionado 21/05/2026)
+    clint_card_id               UUID,
+    clint_deal_uuid             UUID,
     clint_fields_synced         BOOLEAN DEFAULT FALSE,    -- dados do protocolo já enviados ao Clint
-    cliente_id                  INTEGER REFERENCES clientes(id),
+    cliente_id                  UUID REFERENCES clientes(id),
     belle_cliente_cod           INTEGER,
     nome_protocolo              VARCHAR(255),
     tipo_plano                  VARCHAR(100),
@@ -131,10 +131,10 @@ CREATE INDEX IF NOT EXISTS idx_vendas_clint_deal_uuid ON vendas(clint_deal_uuid)
 -- com status 'Atendido' cruzados com protocolos ativos da paciente
 -- ---------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS sessoes (
-    id                  SERIAL PRIMARY KEY,
-    venda_id            INTEGER REFERENCES vendas(id),
-    agendamento_id      INTEGER REFERENCES agendamentos(id),
-    cliente_id          INTEGER REFERENCES clientes(id),
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    venda_id            UUID REFERENCES vendas(id),
+    agendamento_id      UUID REFERENCES agendamentos(id),
+    cliente_id          UUID REFERENCES clientes(id),
     belle_cliente_cod   VARCHAR(20),
     servico_cod         VARCHAR(20),
     servico_nome        VARCHAR(200),
@@ -154,7 +154,7 @@ CREATE INDEX IF NOT EXISTS idx_sessoes_data        ON sessoes(data_realizada);
 -- belle_cod e belle_nome preenchidos manualmente após execução
 -- ---------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS servicos_mapeamento (
-    id              SERIAL PRIMARY KEY,
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     belle_cod       VARCHAR(20),
     belle_nome      VARCHAR(200),
     clint_label     VARCHAR(200) UNIQUE,
@@ -167,8 +167,8 @@ CREATE TABLE IF NOT EXISTS servicos_mapeamento (
 -- LEADS
 -- ---------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS leads (
-    id                          SERIAL PRIMARY KEY,
-    clint_id                    VARCHAR(100) UNIQUE,
+    id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    clint_id                    UUID UNIQUE,
     belle_id                    INTEGER,
     nome                        VARCHAR(255),
     telefone                    VARCHAR(30),
@@ -201,11 +201,11 @@ CREATE INDEX IF NOT EXISTS idx_leads_status    ON leads(status);
 -- LOG DE MENSAGENS
 -- ---------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS mensagens_log (
-    id                  SERIAL PRIMARY KEY,
-    cliente_id          INTEGER REFERENCES clientes(id),
-    lead_id             INTEGER REFERENCES leads(id),
-    agendamento_id      INTEGER REFERENCES agendamentos(id),
-    venda_id            INTEGER REFERENCES vendas(id),
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    cliente_id          UUID REFERENCES clientes(id),
+    lead_id             UUID REFERENCES leads(id),
+    agendamento_id      UUID REFERENCES agendamentos(id),
+    venda_id            UUID REFERENCES vendas(id),
     tipo                VARCHAR(100),   -- confirmacao_24h / lembrete_dia / pos_atendimento /
                                         -- followup_24h / nps / renovacao / upsell /
                                         -- aniversario / nurturing_7d / nurturing_30d / nurturing_60d
@@ -217,18 +217,18 @@ CREATE TABLE IF NOT EXISTS mensagens_log (
     enviada_em          TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_mensagens_cliente_id    ON mensagens_log(cliente_id);
+CREATE INDEX IF NOT EXISTS idx_mensagens_cliente_id     ON mensagens_log(cliente_id);
 CREATE INDEX IF NOT EXISTS idx_mensagens_agendamento_id ON mensagens_log(agendamento_id);
-CREATE INDEX IF NOT EXISTS idx_mensagens_tipo          ON mensagens_log(tipo);
+CREATE INDEX IF NOT EXISTS idx_mensagens_tipo           ON mensagens_log(tipo);
 
 -- ---------------------------------------------------------------
 -- TAREFAS
 -- ---------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS tarefas (
-    id              SERIAL PRIMARY KEY,
-    cliente_id      INTEGER REFERENCES clientes(id),
-    agendamento_id  INTEGER REFERENCES agendamentos(id),
-    venda_id        INTEGER REFERENCES vendas(id),
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    cliente_id      UUID REFERENCES clientes(id),
+    agendamento_id  UUID REFERENCES agendamentos(id),
+    venda_id        UUID REFERENCES vendas(id),
     tipo            VARCHAR(100),   -- reagendamento / confirmacao_manual / renovacao /
                                     -- upsell / reativacao / sem_engajamento
     descricao       TEXT,
