@@ -110,6 +110,7 @@ CREATE TABLE IF NOT EXISTS vendas (
     forma_pagamento             VARCHAR(100),
     sessoes_total               INTEGER,
     sessoes_realizadas          INTEGER DEFAULT 0,
+    clint_sessoes_realizadas    INTEGER DEFAULT 0,        -- último valor de sessões enviado ao Clint (WF-C)
     data_venda                  DATE,
     data_inicio                 DATE,
     data_fim_prevista           DATE,
