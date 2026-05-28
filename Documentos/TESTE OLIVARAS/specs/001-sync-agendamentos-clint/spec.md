@@ -107,6 +107,8 @@ profissional correspondem ao agendamento na Belle.
   → Cada agendamento gera um card separado no Clint (identificado pelo `belle_id`).
 - O que acontece se o Clint retorna erro 4xx ao criar o card?
   → O workflow registra o erro e tenta novamente na próxima execução (não marca como sincronizado).
+- O que acontece se o Clint retorna erro 5xx ou timeout?
+  → A execução atual é interrompida. Os agendamentos ainda não processados nessa rodada serão capturados na próxima execução agendada (máximo 6h depois). Sem retry imediato.
 - O que acontece com agendamentos muito antigos (ex: de 2024)?
   → Filtro de data limita a sincronização a agendamentos recentes (últimos 90 dias ou data configurável).
 - O que acontece se `clint_contact_uuid` é `NULL` para a paciente?
@@ -128,6 +130,7 @@ profissional correspondem ao agendamento na Belle.
 - **FR-008**: O workflow DEVE processar no máximo 20 agendamentos por execução (LIMIT de segurança).
 - **FR-009**: Agendamentos de pacientes sem `clint_contact_uuid` DEVEM ser ignorados.
 - **FR-010**: O workflow DEVE substituir o workflow 01 original — ao ser ativado, o 01 original DEVE ser desativado.
+- **FR-011**: Ao final de cada execução, o workflow DEVE retornar um sumário com: total de agendamentos encontrados, total criados no Clint, total atualizados, total ignorados (sem `clint_contact_uuid`) e total de erros.
 
 ### Key Entities
 
@@ -174,6 +177,8 @@ profissional correspondem ao agendamento na Belle.
 - Q: Qual etapa Clint usar para agendamentos com status "Marcado"? → A: Sempre "Avaliação Agendada". A etapa "Aguardando Confirmação" é responsabilidade do workflow 02a (Fase 2), não deste workflow.
 - Q: Com que frequência o workflow deve rodar? → A: 4 vezes ao dia — 07:30, 13:00, 16:00 e 20:00. A Belle é fonte de verdade e o importante é tudo estar atualizado ao longo do dia sem estressar a API.
 - Q: Qual a janela de datas para buscar agendamentos na Belle? → A: 2 dias para trás + 30 dias para frente. Padrão profissional de polling com margem de recuperação para falhas.
+- Q: Comportamento quando o Clint retorna 5xx ou timeout? → A: Interromper a execução atual e tentar na próxima rodada. Sem retry imediato — a janela de 2 dias garante que nenhum agendamento se perde.
+- Q: Registrar agendamentos ignorados (sem clint_contact_uuid)? → A: Sumário no final da execução (contagem de processados / criados / atualizados / ignorados / erros). Padrão ETL profissional, sem escrita extra no banco.
 
 ---
 
