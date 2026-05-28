@@ -112,7 +112,7 @@
 - [X] T033 **OBRIGATÓRIO**: Verificar e configurar manualmente todos os nós IF (MCP salva IF com condições vazias) — IF: Tem Contato Clint? usa `clint_contact_uuid IS NOT NULL`
 - [X] T034 Executar workflow manualmente uma vez e verificar: sumário retorna `erros = 0`; cards aparecem no Clint; `clint_card_id` e `clint_status_enviado` preenchidos no banco
 - [X] T035 Habilitar o schedule do Workflow 01 v2 no n8n (toggle ativo)
-- [ ] T036 Desativar o Workflow 01 original (`WR0aydR8CK2sjDWN`) após confirmação da primeira execução agendada bem-sucedida — **pendente: confirmar se o 01 original ainda está ativo em paralelo**
+- [X] T036 Desativar o Workflow 01 original (`WR0aydR8CK2sjDWN`) após confirmação da primeira execução agendada bem-sucedida — confirmado inativo desde 20/05; nós Clint nunca foram configurados (placeholder URLs)
 
 ---
 
