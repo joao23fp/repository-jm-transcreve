@@ -118,8 +118,8 @@ profissional correspondem ao agendamento na Belle.
 
 ### Functional Requirements
 
-- **FR-001**: O workflow DEVE rodar automaticamente a cada 5 minutos.
-- **FR-002**: O workflow DEVE buscar agendamentos da Belle com `data_hora >= AGORA - 24h` e `data_hora <= AGORA + 30 dias` para pacientes que já têm `clint_contact_uuid`.
+- **FR-001**: O workflow DEVE rodar automaticamente 4 vezes ao dia nos horários: 07:30, 13:00, 16:00 e 20:00.
+- **FR-002**: O workflow DEVE buscar agendamentos da Belle com `data_hora >= HOJE - 2 dias` e `data_hora <= HOJE + 30 dias` para pacientes que já têm `clint_contact_uuid`.
 - **FR-003**: Para cada agendamento sem `clint_card_id`, o workflow DEVE criar um card no Clint no funil "ODARA | Aquisição TESTE" na etapa correspondente ao status do agendamento.
 - **FR-004**: Para cada agendamento com `clint_card_id` existente, o workflow DEVE atualizar a etapa do card se o status do agendamento na Belle for diferente do status registrado no banco.
 - **FR-005**: O workflow DEVE salvar o `clint_card_id` retornado pelo Clint na tabela `agendamentos` após criar o card.
@@ -142,12 +142,11 @@ profissional correspondem ao agendamento na Belle.
   | Status Belle   | Etapa Clint                  | stage_id                               |
   |----------------|------------------------------|----------------------------------------|
   | Marcado        | Avaliação Agendada           | `711be8cc-a0cb-4bcb-ae40-428f1ad47873` |
-  | Marcado        | Aguardando Confirmação       | `49d26cc2-60a5-44dc-b122-90db486db14d` |
   | Cancelado      | Reagendar                    | `455aafb0-8fef-45d6-beb4-41888cc7d18a` |
   | Atendido       | Consulta Realizada           | `f09cdbdb-fb8e-4f04-b5f8-4a20a8de3341` |
 
-  *Nota: "Marcado" usa "Avaliação Agendada" para novos cards e "Aguardando
-  Confirmação" quando a notificação de confirmação já foi enviada.*
+  *Nota: "Aguardando Confirmação" é gerenciada pelo workflow 02a (Fase 2) ao
+  enviar a notificação — não por este workflow.*
 
 ---
 
@@ -168,6 +167,16 @@ profissional correspondem ao agendamento na Belle.
 
 ---
 
+## Clarifications
+
+### Session 2026-05-28
+
+- Q: Qual etapa Clint usar para agendamentos com status "Marcado"? → A: Sempre "Avaliação Agendada". A etapa "Aguardando Confirmação" é responsabilidade do workflow 02a (Fase 2), não deste workflow.
+- Q: Com que frequência o workflow deve rodar? → A: 4 vezes ao dia — 07:30, 13:00, 16:00 e 20:00. A Belle é fonte de verdade e o importante é tudo estar atualizado ao longo do dia sem estressar a API.
+- Q: Qual a janela de datas para buscar agendamentos na Belle? → A: 2 dias para trás + 30 dias para frente. Padrão profissional de polling com margem de recuperação para falhas.
+
+---
+
 ## Assumptions
 
 - Pacientes que não têm `clint_contact_uuid` já passaram pelo WF-B ou foram
@@ -176,6 +185,6 @@ profissional correspondem ao agendamento na Belle.
   as etapas mapeadas em FR-007.
 - O workflow 01 original continua rodando em paralelo durante o desenvolvimento
   e é desativado somente após o 01 v2 ser validado em produção.
-- A janela de datas padrão é: agendamentos com `data_hora` entre ontem e
-  30 dias à frente (configurável futuramente via variável).
+- A janela de datas é: agendamentos com `data_hora` entre 2 dias atrás e
+  30 dias à frente — padrão profissional com margem de recuperação para falhas.
 - O campo `clint_card_id` na tabela `agendamentos` já existe no schema (UUID).
