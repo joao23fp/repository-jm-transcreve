@@ -1,0 +1,325 @@
+{
+  "name": "ODARA | 01v2 - Sync Agendamentos Belle → Clint",
+  "nodes": [
+
+    {
+      "id": "v2-001",
+      "name": "Schedule 4x/dia",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [240, 304],
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "cronExpression", "expression": "30 10 * * *" },
+            { "field": "cronExpression", "expression": "0 16 * * *" },
+            { "field": "cronExpression", "expression": "0 19 * * *" },
+            { "field": "cronExpression", "expression": "0 23 * * *" }
+          ]
+        }
+      }
+    },
+
+    {
+      "id": "v2-002",
+      "name": "Calcular Datas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [464, 304],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const now = new Date();\nconst fmt = d => [String(d.getDate()).padStart(2,'0'), String(d.getMonth()+1).padStart(2,'0'), d.getFullYear()].join('/');\nconst p = new Date(now); p.setDate(now.getDate() - 2);\nconst f = new Date(now); f.setDate(now.getDate() + 30);\nreturn [{ json: { dtInicio: fmt(p), dtFim: fmt(f), executado_em: now.toISOString() } }];"
+      }
+    },
+
+    {
+      "id": "v2-003",
+      "name": "Preparar 3 Requests Belle",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [688, 304],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const { dtInicio, dtFim, executado_em } = $input.first().json;\nreturn [\n  { json: { url: 'agendamentos',            dtInicio, dtFim, executado_em } },\n  { json: { url: 'agendamentos/finalizados', dtInicio, dtFim, executado_em } },\n  { json: { url: 'agendamentos/cancelados',  dtInicio, dtFim, executado_em } },\n];"
+      }
+    },
+
+    {
+      "id": "v2-004",
+      "name": "BELLE: Buscar Agendamentos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [912, 304],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://app.bellesoftware.com.br/api/release/controller/IntegracaoExterna/v1.0/{{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "669ebde7afafcd939eff35cc43a594cb" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "codEstab", "value": "1" },
+            { "name": "dtInicio", "value": "={{ $json.dtInicio }}" },
+            { "name": "dtFim",    "value": "={{ $json.dtFim }}"    }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": { "responseFormat": "json", "neverError": true }
+          }
+        }
+      }
+    },
+
+    {
+      "id": "v2-005",
+      "name": "Combinar e Normalizar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1136, 304],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const out = [];\nconst norm = a => {\n  const p = (a.dtAgenda || '').split('/');\n  const d = p.length === 3 ? p[2] + '-' + p[1] + '-' + p[0] : null;\n  const h = d && a.hrConsulta ? new Date(d + 'T' + a.hrConsulta + ':00').toISOString() : null;\n  return { json: {\n    belle_id:          a.codConsulta,\n    belle_cliente_cod: String(a.cliente?.cod || ''),\n    nome_cliente:      (a.cliente?.nome || '').replace(/'/g, \"''\"),\n    celular_cliente:   a.cliente?.celular || '',\n    cod_profissional:  String(a.prof?.cod || ''),\n    nome_profissional: (a.prof?.nome || '').replace(/'/g, \"''\"),\n    nome_sala:         a.sala?.nome || '',\n    servicos:          JSON.stringify(a.servicos || []),\n    dt_agenda: d, hr_consulta: a.hrConsulta || '', data_hora: h,\n    status: a.status || '', tipo: a.status || '',\n    observacao: (a.observacao || '').replace(/'/g, \"''\"),\n  }};\n};\nfor (const item of $input.all()) {\n  const data = item.json;\n  const rows = Array.isArray(data) ? data : (data.codConsulta ? [data] : []);\n  for (const a of rows) { if (a.codConsulta) out.push(norm(a)); }\n}\nconsole.log('Normalizados: ' + out.length);\nreturn out;"
+      }
+    },
+
+    {
+      "id": "v2-006",
+      "name": "DB: Upsert Agendamentos",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [1360, 304],
+      "credentials": { "postgres": { "id": "6W46gLQ9cENri003", "name": "PostgreSQL Odara" } },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO agendamentos (\n  belle_id, belle_cliente_cod, nome_cliente, celular_cliente,\n  cod_profissional, nome_profissional, nome_sala, servicos,\n  dt_agenda, hr_consulta, data_hora, status, tipo, observacao, sinc_em\n) VALUES (\n  {{ $json.belle_id }},\n  '{{ $json.belle_cliente_cod }}',\n  '{{ $json.nome_cliente }}',\n  '{{ $json.celular_cliente }}',\n  '{{ $json.cod_profissional }}',\n  '{{ $json.nome_profissional }}',\n  '{{ $json.nome_sala }}',\n  '{{ $json.servicos }}'::jsonb,\n  {{ $json.dt_agenda ? (\"'\" + $json.dt_agenda + \"'\") : 'NULL' }},\n  '{{ $json.hr_consulta }}',\n  {{ $json.data_hora ? (\"'\" + $json.data_hora + \"'\") : 'NULL' }},\n  '{{ $json.status }}',\n  '{{ $json.tipo }}',\n  '{{ $json.observacao }}',\n  NOW()\n)\nON CONFLICT (belle_id) DO UPDATE SET\n  status=EXCLUDED.status,\n  servicos=EXCLUDED.servicos,\n  nome_profissional=EXCLUDED.nome_profissional,\n  nome_sala=EXCLUDED.nome_sala,\n  data_hora=EXCLUDED.data_hora,\n  sinc_em=NOW(),\n  atualizado_em=NOW()\nRETURNING id, belle_id, status",
+        "options": {
+          "queryBatching": "independently"
+        }
+      }
+    },
+
+    {
+      "id": "v2-006b",
+      "name": "Consolidar Upsert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1584, 304],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const total = $input.all().length;\nconsole.log('Upsert concluído: ' + total + ' agendamentos processados');\nreturn [{ json: { upserted: total, ts: new Date().toISOString() } }];"
+      }
+    },
+
+    {
+      "id": "v2-007",
+      "name": "DB: Buscar Pendentes Criacao",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [1808, 304],
+      "credentials": { "postgres": { "id": "6W46gLQ9cENri003", "name": "PostgreSQL Odara" } },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  a.id, a.belle_id, a.status, a.dt_agenda::text as dt_agenda,\n  a.hr_consulta, a.nome_profissional, a.servicos::text as servicos,\n  c.clint_contact_uuid, c.nome as nome_cliente\nFROM agendamentos a\nJOIN clientes c ON c.belle_id::text = a.belle_cliente_cod\nWHERE a.data_hora BETWEEN NOW()-INTERVAL '2 days' AND NOW()+INTERVAL '30 days'\n  AND c.clint_contact_uuid IS NOT NULL\n  AND a.clint_card_id IS NULL\nORDER BY a.data_hora ASC LIMIT 20",
+        "options": {}
+      },
+      "alwaysOutputData": true
+    },
+
+    {
+      "id": "v2-008",
+      "name": "Code: Preparar Card Clint",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1808, 304],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const item = $input.item.json;\nif (!item.id) return null;\nconst stageMap = {\n  'Marcado':   '711be8cc-a0cb-4bcb-ae40-428f1ad47873',\n  'Atendido':  'f09cdbdb-fb8e-4f04-b5f8-4a20a8de3341',\n  'Cancelado': '455aafb0-8fef-45d6-beb4-41888cc7d18a',\n};\nconst stage_id = stageMap[item.status] || stageMap['Marcado'];\nlet servicos_label = '';\ntry {\n  const raw = item.servicos;\n  const arr = typeof raw === 'string' ? JSON.parse(raw || '[]') : (Array.isArray(raw) ? raw : []);\n  servicos_label = arr.map(s => (typeof s === 'string' ? s : String(s.nome || '')).trim()).filter(Boolean).join(', ');\n} catch(e) {}\nif (!servicos_label) servicos_label = 'Avaliação';\nconst nome_profissional = (item.nome_profissional || '').trim();\nconst dt_agenda_fmt = item.dt_agenda ? item.dt_agenda.substring(0,10).split('-').reverse().join('/') : '';\nreturn { json: { ...item, stage_id, nome_profissional, dt_agenda_fmt, card_name: item.nome_cliente.trim(), servicos_label } };"
+      }
+    },
+
+    {
+      "id": "v2-009",
+      "name": "CLINT: Criar Card",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [2032, 304],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.clint.digital/v1/deals",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "api-token",    "value": "U2FsdGVkX18o3kwB1pZCF/BjjfgN8GgFjmt5Fkzf06JXZIbAkVToB6ZLKPIljW7mSS0ESoxnErXsL9DXE+ZGVg==" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"contact_id\":\"{{ $json.clint_contact_uuid }}\",\"origin_id\":\"58d30a69-0378-4dc5-9a77-72a5c1570671\",\"stage_id\":\"{{ $json.stage_id }}\",\"fields\":{\"data_da_consulta_ser\":\"{{ $json.dt_agenda_fmt }}\",\"profissionais_odara\":\"{{ $json.nome_profissional }}\",\"servico_belle\":\"{{ $json.servicos_label }}\"}}",
+        "options": {
+          "response": {
+            "response": { "responseFormat": "json", "neverError": true }
+          }
+        }
+      }
+    },
+
+    {
+      "id": "v2-010",
+      "name": "Code: Extrair Card ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2256, 304],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const resp = $input.item.json;\nconst src  = $('Code: Preparar Card Clint').item.json;\nconst card_id = (resp.data && resp.data.id) || resp.id || null;\nreturn { json: { card_id, agendamento_id: src.id, status: src.status, _ok: !!card_id } };"
+      }
+    },
+
+    {
+      "id": "v2-011",
+      "name": "DB: Salvar clint_card_id",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [2480, 304],
+      "credentials": { "postgres": { "id": "6W46gLQ9cENri003", "name": "PostgreSQL Odara" } },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE agendamentos\nSET clint_card_id = $1::uuid, clint_status_enviado = $2, atualizado_em = NOW()\nWHERE id = $3::uuid AND $4::boolean = TRUE",
+        "options": {
+          "queryReplacement": "={{ $json.card_id }},{{ $json.status }},{{ $json.agendamento_id }},{{ $json._ok }}",
+          "queryBatching": "independently"
+        }
+      }
+    },
+
+    {
+      "id": "v2-012",
+      "name": "DB: Buscar Pendentes Update",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [2704, 304],
+      "credentials": { "postgres": { "id": "6W46gLQ9cENri003", "name": "PostgreSQL Odara" } },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  a.id, a.clint_card_id::text as clint_card_id,\n  a.status, a.clint_status_enviado\nFROM agendamentos a\nWHERE a.data_hora BETWEEN NOW()-INTERVAL '2 days' AND NOW()+INTERVAL '30 days'\n  AND a.clint_card_id IS NOT NULL\n  AND (a.clint_status_enviado IS NULL OR a.status != a.clint_status_enviado)\nORDER BY a.data_hora ASC LIMIT 20",
+        "options": {}
+      },
+      "alwaysOutputData": true
+    },
+
+    {
+      "id": "v2-013",
+      "name": "Code: Preparar Update Clint",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2928, 304],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const item = $input.item.json;\nif (!item.id) return null;\nconst stageMap = {\n  'Marcado':   '711be8cc-a0cb-4bcb-ae40-428f1ad47873',\n  'Atendido':  'f09cdbdb-fb8e-4f04-b5f8-4a20a8de3341',\n  'Cancelado': '455aafb0-8fef-45d6-beb4-41888cc7d18a',\n};\nreturn { json: { ...item, stage_id: stageMap[item.status] || stageMap['Marcado'] } };"
+      }
+    },
+
+    {
+      "id": "v2-014",
+      "name": "CLINT: Mover Etapa",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [3152, 304],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clint.digital/v1/deals/{{ $json.clint_card_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "api-token",    "value": "U2FsdGVkX18o3kwB1pZCF/BjjfgN8GgFjmt5Fkzf06JXZIbAkVToB6ZLKPIljW7mSS0ESoxnErXsL9DXE+ZGVg==" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"stage_id\":\"{{ $json.stage_id }}\"}",
+        "options": {
+          "response": {
+            "response": { "responseFormat": "json", "neverError": true }
+          }
+        }
+      }
+    },
+
+    {
+      "id": "v2-015",
+      "name": "DB: Atualizar Status Enviado",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [3376, 304],
+      "credentials": { "postgres": { "id": "6W46gLQ9cENri003", "name": "PostgreSQL Odara" } },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE agendamentos\nSET clint_status_enviado = $1, atualizado_em = NOW()\nWHERE id = $2::uuid",
+        "options": {
+          "queryReplacement": "={{ $('Code: Preparar Update Clint').item.json.status }},{{ $('Code: Preparar Update Clint').item.json.id }}",
+          "queryBatching": "independently"
+        }
+      }
+    }
+
+  ],
+
+  "connections": {
+    "Schedule 4x/dia": {
+      "main": [[{ "node": "Calcular Datas",              "type": "main", "index": 0 }]]
+    },
+    "Calcular Datas": {
+      "main": [[{ "node": "Preparar 3 Requests Belle",   "type": "main", "index": 0 }]]
+    },
+    "Preparar 3 Requests Belle": {
+      "main": [[{ "node": "BELLE: Buscar Agendamentos",  "type": "main", "index": 0 }]]
+    },
+    "BELLE: Buscar Agendamentos": {
+      "main": [[{ "node": "Combinar e Normalizar",        "type": "main", "index": 0 }]]
+    },
+    "Combinar e Normalizar": {
+      "main": [[{ "node": "DB: Upsert Agendamentos",      "type": "main", "index": 0 }]]
+    },
+    "DB: Upsert Agendamentos": {
+      "main": [[{ "node": "Consolidar Upsert", "type": "main", "index": 0 }]]
+    },
+    "Consolidar Upsert": {
+      "main": [[{ "node": "DB: Buscar Pendentes Criacao", "type": "main", "index": 0 }]]
+    },
+    "DB: Buscar Pendentes Criacao": {
+      "main": [[{ "node": "Code: Preparar Card Clint",    "type": "main", "index": 0 }]]
+    },
+    "Code: Preparar Card Clint": {
+      "main": [[{ "node": "CLINT: Criar Card",            "type": "main", "index": 0 }]]
+    },
+    "CLINT: Criar Card": {
+      "main": [[{ "node": "Code: Extrair Card ID",        "type": "main", "index": 0 }]]
+    },
+    "Code: Extrair Card ID": {
+      "main": [[{ "node": "DB: Salvar clint_card_id",     "type": "main", "index": 0 }]]
+    },
+    "DB: Salvar clint_card_id": {
+      "main": [[{ "node": "DB: Buscar Pendentes Update",  "type": "main", "index": 0 }]]
+    },
+    "DB: Buscar Pendentes Update": {
+      "main": [[{ "node": "Code: Preparar Update Clint",  "type": "main", "index": 0 }]]
+    },
+    "Code: Preparar Update Clint": {
+      "main": [[{ "node": "CLINT: Mover Etapa",           "type": "main", "index": 0 }]]
+    },
+    "CLINT: Mover Etapa": {
+      "main": [[{ "node": "DB: Atualizar Status Enviado", "type": "main", "index": 0 }]]
+    }
+  },
+
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "meta": { "aiBuilderAssisted": true }
+}

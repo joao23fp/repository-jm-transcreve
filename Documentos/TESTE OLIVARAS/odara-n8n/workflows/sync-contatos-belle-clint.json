@@ -1,0 +1,210 @@
+{
+  "name": "ODARA | SYNC Novos Contatos Belle → Clint",
+  "nodes": [
+
+    {
+      "id": "sc-001",
+      "name": "A cada 1 hora",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [240, 304],
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "hours", "hoursInterval": 1 }
+          ]
+        }
+      }
+    },
+
+    {
+      "id": "sc-002",
+      "name": "DB Clientes Sem Clint UUID",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [480, 304],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT c.id as cliente_id, c.nome, c.celular, c.belle_id FROM clientes c WHERE c.clint_contact_uuid IS NULL AND c.celular IS NOT NULL AND c.celular != '' AND EXISTS ( SELECT 1 FROM vendas v WHERE v.cliente_id = c.id AND v.status_plano = 'Aprovado' ) ORDER BY c.criado_em DESC LIMIT 10",
+        "options": {}
+      }
+    },
+
+    {
+      "id": "sc-003",
+      "name": "Code: Preparar Telefone",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 304],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const item = $input.item.json;\nconst celular = (item.celular || '').replace(/\\D/g, '');\n// remove 55 do início se tiver mais de 11 dígitos\nconst phone = celular.startsWith('55') && celular.length > 11 ? celular.slice(2) : celular;\nreturn { json: { ...item, phone } };"
+      }
+    },
+
+    {
+      "id": "sc-004",
+      "name": "CLINT: Buscar por Telefone",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [960, 304],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.clint.digital/v1/contacts?phone={{ $json.phone }}&limit=1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "api-token", "value": "U2FsdGVkX18o3kwB1pZCF/BjjfgN8GgFjmt5Fkzf06JXZIbAkVToB6ZLKPIljW7mSS0ESoxnErXsL9DXE+ZGVg==" }
+          ]
+        },
+        "options": {}
+      }
+    },
+
+    {
+      "id": "sc-005",
+      "name": "IF: Já existe no Clint?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1200, 304],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-01",
+              "leftValue": "={{ $json.totalCount }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+
+    {
+      "id": "sc-006",
+      "name": "Code: Extrair UUID Existente",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 200],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const clint_contact_uuid = $json.data[0].id;\nconst cliente_id = $('Code: Preparar Telefone').item.json.cliente_id;\nreturn { json: { cliente_id, clint_contact_uuid, acao: 'encontrado' } };"
+      }
+    },
+
+    {
+      "id": "sc-007",
+      "name": "CLINT: Criar Contato",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [1440, 420],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.clint.digital/v1/contacts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "api-token", "value": "U2FsdGVkX18o3kwB1pZCF/BjjfgN8GgFjmt5Fkzf06JXZIbAkVToB6ZLKPIljW7mSS0ESoxnErXsL9DXE+ZGVg==" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"name\":\"{{ $('Code: Preparar Telefone').item.json.nome }}\",\"ddi\":\"55\",\"phone\":\"{{ $('Code: Preparar Telefone').item.json.phone }}\"}",
+        "options": {}
+      }
+    },
+
+    {
+      "id": "sc-008",
+      "name": "Code: Extrair UUID Criado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1680, 420],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const clint_contact_uuid = $json.id;\nconst cliente_id = $('Code: Preparar Telefone').item.json.cliente_id;\nreturn { json: { cliente_id, clint_contact_uuid, acao: 'criado' } };"
+      }
+    },
+
+    {
+      "id": "sc-009",
+      "name": "Merge Encontrado + Criado",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1920, 304],
+      "parameters": {
+        "mode": "append"
+      }
+    },
+
+    {
+      "id": "sc-010",
+      "name": "DB Salvar clint_contact_uuid",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [2160, 304],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE clientes SET clint_contact_uuid = $1::uuid, atualizado_em = NOW() WHERE id = $2::uuid",
+        "options": {
+          "queryReplacement": "={{ $json.clint_contact_uuid }},{{ $json.cliente_id }}"
+        }
+      }
+    },
+
+    {
+      "id": "sc-011",
+      "name": "Code: Sumário",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2400, 304],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const items = $input.all();\nconst criados = items.filter(i => i.json.acao === 'criado').length;\nconst encontrados = items.filter(i => i.json.acao === 'encontrado').length;\nconsole.log(`[SYNC Contatos] Processados: ${items.length} | Criados no Clint: ${criados} | Já existiam: ${encontrados}`);\nreturn [{ json: { total: items.length, criados, encontrados } }];"
+      }
+    }
+
+  ],
+  "connections": {
+    "A cada 1 hora": {
+      "main": [[{ "node": "DB Clientes Sem Clint UUID", "type": "main", "index": 0 }]]
+    },
+    "DB Clientes Sem Clint UUID": {
+      "main": [[{ "node": "Code: Preparar Telefone", "type": "main", "index": 0 }]]
+    },
+    "Code: Preparar Telefone": {
+      "main": [[{ "node": "CLINT: Buscar por Telefone", "type": "main", "index": 0 }]]
+    },
+    "CLINT: Buscar por Telefone": {
+      "main": [[{ "node": "IF: Já existe no Clint?", "type": "main", "index": 0 }]]
+    },
+    "IF: Já existe no Clint?": {
+      "main": [
+        [{ "node": "Code: Extrair UUID Existente", "type": "main", "index": 0 }],
+        [{ "node": "CLINT: Criar Contato", "type": "main", "index": 0 }]
+      ]
+    },
+    "Code: Extrair UUID Existente": {
+      "main": [[{ "node": "Merge Encontrado + Criado", "type": "main", "index": 0 }]]
+    },
+    "CLINT: Criar Contato": {
+      "main": [[{ "node": "Code: Extrair UUID Criado", "type": "main", "index": 0 }]]
+    },
+    "Code: Extrair UUID Criado": {
+      "main": [[{ "node": "Merge Encontrado + Criado", "type": "main", "index": 1 }]]
+    },
+    "Merge Encontrado + Criado": {
+      "main": [[{ "node": "DB Salvar clint_contact_uuid", "type": "main", "index": 0 }]]
+    },
+    "DB Salvar clint_contact_uuid": {
+      "main": [[{ "node": "Code: Sumário", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
