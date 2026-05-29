@@ -1,15 +1,13 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: [template] → 1.0.0
-New sections: All (primeira ratificação)
-Modified principles: N/A (preenchimento inicial)
+Version change: 1.0.0 → 1.1.0 (MINOR — novo princípio adicionado)
+New sections: Princípio VI — Testes Sempre no Contato de Desenvolvimento
+Modified principles: N/A
 Removed sections: N/A
 Templates atualizados:
-  ✅ constitution.md — preenchido a partir do template
-  ✅ plan-template.md — Constitution Check gate referencia Princípios I–V
-  ✅ spec-template.md — sem alterações estruturais necessárias
-  ✅ tasks-template.md — sem alterações estruturais necessárias
+  ✅ constitution.md — Princípio VI adicionado (2026-05-29)
+  ✅ plan-template.md — Constitution Check gate referencia Princípios I–V (manter; VI adicionado)
 Deferred TODOs: nenhum
 -->
 
@@ -83,6 +81,28 @@ Regras não negociáveis:
 - Nunca habilitar o agendamento automático sem ao menos uma execução manual
   bem-sucedida.
 
+### VI. Testes Sempre no Contato de Desenvolvimento
+
+Em ambiente de desenvolvimento e validação, toda mensagem WhatsApp ou chamada
+de webhook que envolva envio de comunicação DEVE ser direcionada exclusivamente
+ao contato de teste cadastrado. Nunca usar contatos de pacientes reais em testes.
+
+**Contato de teste registrado**:
+- Nome: João Miguel Pelais
+- Celular: `11940210984` / E.164: `+5511940210984`
+- `clint_contact_uuid`: `b16716bf-1ee4-4465-89a5-b61929a78da6`
+- `belle_id` (fictício): `99999998` — `belle_cliente_cod`: `'99999998'`
+- Agendamento de teste: `5eb1a88a-fe78-496f-be5a-d0f36a0b19d7`
+
+Regras não negociáveis:
+- NUNCA rodar um workflow de envio de mensagem em teste apontando para
+  um paciente real da ODARA RIO.
+- O registro `belle_id = 99999998` na tabela `clientes` é exclusivo para
+  testes — NUNCA deve aparecer em execuções de produção.
+- Antes de ativar qualquer workflow de mensageria em produção, remover ou
+  isolar o agendamento de teste para que não interfira no fluxo real.
+- Ao validar templates WhatsApp, sempre usar o número `+5511940210984`.
+
 ## Padrões Técnicos de Workflow n8n
 
 Regras operacionais obrigatórias para construção e manutenção dos workflows:
@@ -126,4 +146,4 @@ Versionamento SemVer:
 - MINOR: adição de princípio ou seção relevante.
 - PATCH: clarificações, correções de texto, refinamentos sem impacto semântico.
 
-**Version**: 1.0.0 | **Ratified**: 2026-05-28 | **Last Amended**: 2026-05-28
+**Version**: 1.1.0 | **Ratified**: 2026-05-28 | **Last Amended**: 2026-05-29

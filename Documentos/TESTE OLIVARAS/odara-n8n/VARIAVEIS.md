@@ -26,7 +26,7 @@ Após definirmos, basta atualizar os valores nos nós `Code` de cada workflow.
 
 **Pergunta:** Quanto tempo a vendedora mantém o contato com a paciente após a conversão antes de passar para a Especialista?
 
-**Valor a definir:** `___` dias
+**Valor definido:** `7` dias ✅ (definido em 29/05/2026)
 
 ---
 
@@ -38,7 +38,7 @@ Após definirmos, basta atualizar os valores nos nós `Code` de cada workflow.
 
 **Pergunta:** Quantos dias sem novo agendamento é considerado abandono silencioso?
 
-**Valor a definir:** `___` dias
+**Valor definido:** `10` dias ✅ (definido em 29/05/2026)
 
 ---
 
@@ -50,7 +50,7 @@ Após definirmos, basta atualizar os valores nos nós `Code` de cada workflow.
 
 **Pergunta:** Quando é o momento ideal para pedir avaliação? Geralmente após a 3ª ou 4ª sessão ou após X semanas.
 
-**Valor a definir:** `___` dias a partir da data de início do protocolo
+**Valor definido:** `21` dias ✅ (definido em 29/05/2026)
 
 ---
 
@@ -73,6 +73,9 @@ Após definirmos os valores, localize o nó `Code: Configurações` no início d
 ```javascript
 const HORAS_SEM_RESPOSTA_CONFIRMACAO = 4;  // ← altere aqui
 const DIAS_POS_CONVERSAO_MIGRAR_FUNIL = 7;
-const DIAS_SEM_AGENDAMENTO_ALERTA = 14;
-const DIAS_INICIO_PROTOCOLO_NPS = 21;
+const DIAS_SEM_AGENDAMENTO_ALERTA = 10;
+const HORAS_SEM_RESPOSTA_CONFIRMACAO = 4;   // ✅ definido
+const DIAS_POS_CONVERSAO_MIGRAR_FUNIL = 7;  // ✅ definido
+const DIAS_SEM_AGENDAMENTO_ALERTA = 10;     // ✅ definido
+const DIAS_INICIO_PROTOCOLO_NPS = 21;       // ✅ definido
 ```

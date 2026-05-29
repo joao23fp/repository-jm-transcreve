@@ -1,246 +1,181 @@
 {
-  "name": "ODARA | 02b - Webhook Resposta Confirmação",
+  "id": "M9sg3ZtjI5JxC94h",
+  "name": "ODARA | 02b - Webhook Resposta Confirmacao",
   "nodes": [
+
     {
-      "id": "resp-001",
-      "name": "Webhook: Resposta da Paciente",
+      "name": "Webhook: Resposta Confirmacao",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
-      "position": [100, 300],
+      "typeVersion": 2.1,
+      "position": [240, 300],
       "parameters": {
         "httpMethod": "POST",
         "path": "confirmacao-resposta",
-        "responseMode": "lastNode",
-        "options": {}
+        "responseMode": "onReceived"
       }
     },
+
     {
-      "id": "resp-002",
-      "name": "Extrair Dados da Resposta",
+      "name": "Code: Extrair Resposta",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [320, 300],
+      "position": [460, 300],
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "// O Clint envia o resultado da interação da paciente\n// Esperado: { agendamento_id, resposta: 'confirmado' | 'cancelado', telefone, nome }\nconst body = $input.item.json.body || $input.item.json;\n\nreturn {\n  json: {\n    agendamento_id: body.agendamento_id || body.metadata?.agendamento_id,\n    belle_id:       body.agendamento_belle_id,\n    resposta:       (body.resposta || body.botao_id || '').toLowerCase(),\n    telefone:       body.telefone,\n    nome:           body.nome\n  }\n};"
+        "jsCode": "const body = $input.item.json.body || $input.item.json;\nconst resposta = (body.message?.button?.text || body.message?.text || body.data?.text || '').toLowerCase().trim();\nconst meta = body.metadata || body.data?.metadata || {};\nconst agendamento_id = meta.agendamento_id || null;\nconst contact_id = body.contact?.id || body.data?.contact?.id || null;\nif (!agendamento_id) {\n  throw new Error('[02b] agendamento_id nao encontrado: ' + JSON.stringify(body).slice(0, 300));\n}\nreturn { json: { agendamento_id, resposta, contact_id } };"
       }
     },
+
     {
-      "id": "resp-003",
-      "name": "Confirmou ou Cancelou?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [540, 300],
+      "name": "DB: Buscar Agendamento",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [680, 300],
       "parameters": {
-        "conditions": {
-          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
-          "conditions": [
-            {
-              "id": "cond-resp-001",
-              "leftValue": "={{ $json.resposta }}",
-              "rightValue": "confirmar",
-              "operator": { "type": "string", "operation": "contains" }
-            }
-          ],
-          "combinator": "and"
+        "operation": "executeQuery",
+        "query": "SELECT a.id, a.clint_card_id, c.nome as nome_cliente FROM agendamentos a LEFT JOIN clientes c ON c.belle_id::text = a.belle_cliente_cod WHERE a.id = $1::uuid LIMIT 1",
+        "options": {
+          "queryReplacement": "={{ $json.agendamento_id }}"
         }
       }
     },
+
     {
-      "id": "resp-004",
-      "name": "DB: Marcar como Confirmada",
+      "name": "Code: Preparar Dados",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const db = $input.item.json;\nconst ext = $('Code: Extrair Resposta').item.json;\nreturn { json: {\n  agendamento_id: db.id,\n  clint_card_id: db.clint_card_id,\n  nome_cliente: db.nome_cliente,\n  resposta: ext.resposta,\n} };"
+      }
+    },
+
+    {
+      "name": "IF: Confirmou?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1100, 300],
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.resposta }}",
+              "operator": { "type": "string", "operation": "contains" },
+              "rightValue": "confirmar"
+            }
+          ]
+        },
+        "looseTypeValidation": true
+      }
+    },
+
+    {
+      "name": "CLINT: Mover para Confirmado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1320, 160],
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.clint.digital/v1/deals/{{ $json.clint_card_id }}",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            { "name": "api-token", "value": "U2FsdGVkX18o3kwB1pZCF/BjjfgN8GgFjmt5Fkzf06JXZIbAkVToB6ZLKPIljW7mSS0ESoxnErXsL9DXE+ZGVg==" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "{\"stage_id\":\"cae200fb-6aad-4e63-8586-4f52f76e06f8\"}",
+        "options": {}
+      }
+    },
+
+    {
+      "name": "DB: Marcar Confirmado",
       "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [760, 180],
+      "typeVersion": 2.6,
+      "position": [1540, 160],
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE agendamentos\nSET confirmacao_resposta = 'confirmado',\n    confirmacao_respondida_em = NOW()\nWHERE id = {{ $json.agendamento_id }}\nRETURNING id, belle_id, nome_cliente, clint_card_id;",
-        "options": {}
-      },
-      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
+        "query": "UPDATE agendamentos SET confirmacao_resposta = 'confirmado', confirmacao_respondida_em = NOW(), atualizado_em = NOW() WHERE id = $1::uuid",
+        "options": {
+          "queryReplacement": "={{ $('Code: Preparar Dados').item.json.agendamento_id }}"
+        }
+      }
     },
+
     {
-      "id": "resp-005",
-      "name": "🔵 CLINT: Mover Card para Confirmado",
+      "name": "CLINT: Mover para Reagendar",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [980, 180],
+      "typeVersion": 4.4,
+      "position": [1320, 440],
       "parameters": {
-        "method": "PUT",
-        "url": "https://SEU_DOMINIO_CLINT/api/deals/move",
+        "method": "PATCH",
+        "url": "=https://api.clint.digital/v1/deals/{{ $json.clint_card_id }}",
         "sendHeaders": true,
+        "specifyHeaders": "keypair",
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "Bearer SEU_TOKEN_CLINT" },
+            { "name": "api-token", "value": "U2FsdGVkX18o3kwB1pZCF/BjjfgN8GgFjmt5Fkzf06JXZIbAkVToB6ZLKPIljW7mSS0ESoxnErXsL9DXE+ZGVg==" },
             { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
         "contentType": "json",
-        "body": "={\n  \"action\": \"mover_etapa\",\n  \"card_id\": \"{{ $json.clint_card_id }}\",\n  \"nova_etapa\": \"Confirmado\",\n  \"motivo\": \"Paciente confirmou via WhatsApp\"\n}",
+        "specifyBody": "json",
+        "jsonBody": "{\"stage_id\":\"455aafb0-8fef-45d6-beb4-41888cc7d18a\"}",
         "options": {}
       }
     },
+
     {
-      "id": "resp-006",
-      "name": "DB: Marcar como Cancelada",
+      "name": "DB: Marcar Cancelado",
       "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [760, 420],
+      "typeVersion": 2.6,
+      "position": [1540, 440],
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE agendamentos\nSET confirmacao_resposta = 'cancelado',\n    confirmacao_respondida_em = NOW(),\n    status = 'Cancelado'\nWHERE id = {{ $json.agendamento_id }}\nRETURNING id, belle_id, nome_cliente, celular_cliente, clint_card_id;",
-        "options": {}
-      },
-      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
-    },
-    {
-      "id": "resp-007",
-      "name": "BELLE: Cancelar Agendamento",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [980, 360],
-      "parameters": {
-        "method": "PUT",
-        "url": "https://app.bellesoftware.com.br/api/release/controller/IntegracaoExterna/v1.0/agenda/status",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "Authorization", "value": "669ebde7afafcd939eff35cc43a594cb" },
-            { "name": "Content-Type", "value": "application/json" }
-          ]
-        },
-        "sendBody": true,
-        "contentType": "json",
-        "body": "={\n  \"codConsulta\": {{ $('DB: Marcar como Cancelada').item.json.belle_id }},\n  \"novoStatus\": \"Cancelado\"\n}",
-        "options": {}
+        "query": "UPDATE agendamentos SET confirmacao_resposta = 'cancelado', confirmacao_respondida_em = NOW(), atualizado_em = NOW() WHERE id = $1::uuid",
+        "options": {
+          "queryReplacement": "={{ $('Code: Preparar Dados').item.json.agendamento_id }}"
+        }
       }
-    },
-    {
-      "id": "resp-008",
-      "name": "🔵 CLINT: Mover Card para Reagendamento",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1180, 360],
-      "parameters": {
-        "method": "PUT",
-        "url": "https://SEU_DOMINIO_CLINT/api/deals/move",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "Authorization", "value": "Bearer SEU_TOKEN_CLINT" },
-            { "name": "Content-Type", "value": "application/json" }
-          ]
-        },
-        "sendBody": true,
-        "contentType": "json",
-        "body": "={\n  \"action\": \"mover_etapa\",\n  \"card_id\": \"{{ $('DB: Marcar como Cancelada').item.json.clint_card_id }}\",\n  \"nova_etapa\": \"Reagendamento\",\n  \"motivo\": \"Paciente cancelou via WhatsApp\"\n}",
-        "options": {}
-      }
-    },
-    {
-      "id": "resp-009",
-      "name": "🔵 CLINT: Criar Tarefa Reagendamento",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1380, 360],
-      "parameters": {
-        "method": "POST",
-        "url": "https://SEU_DOMINIO_CLINT/api/tasks",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "Authorization", "value": "Bearer SEU_TOKEN_CLINT" },
-            { "name": "Content-Type", "value": "application/json" }
-          ]
-        },
-        "sendBody": true,
-        "contentType": "json",
-        "body": "={\n  \"action\": \"criar_tarefa\",\n  \"card_id\": \"{{ $('DB: Marcar como Cancelada').item.json.clint_card_id }}\",\n  \"titulo\": \"Reagendar paciente — cancelou via WhatsApp\",\n  \"descricao\": \"{{ $('DB: Marcar como Cancelada').item.json.nome_cliente }} cancelou o agendamento. Entre em contato para remarcar.\",\n  \"responsavel\": \"vendedora\",\n  \"prioridade\": \"alta\"\n}",
-        "options": {}
-      }
-    },
-    {
-      "id": "resp-010",
-      "name": "🔵 CLINT: Enviar MSG Retorno ao Cancelamento",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1580, 360],
-      "parameters": {
-        "method": "POST",
-        "url": "https://SEU_DOMINIO_CLINT/api/messages/send",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "Authorization", "value": "Bearer SEU_TOKEN_CLINT" },
-            { "name": "Content-Type", "value": "application/json" }
-          ]
-        },
-        "sendBody": true,
-        "contentType": "json",
-        "body": "={\n  \"action\": \"enviar_mensagem\",\n  \"telefone\": \"{{ $('DB: Marcar como Cancelada').item.json.celular_cliente }}\",\n  \"mensagem\": \"Entendemos que você precisa cancelar, {{ $('DB: Marcar como Cancelada').item.json.nome_cliente }}. 💙\\n\\nUma de nossas especialistas entrará em contato em breve para remarcar em um horário que funcione melhor para você!\"\n}",
-        "options": {}
-      }
-    },
-    {
-      "id": "resp-011",
-      "name": "DB: Tarefa Reagendamento no Banco",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [1760, 360],
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "INSERT INTO tarefas (agendamento_id, tipo, descricao, responsavel, prioridade)\nSELECT {{ $('DB: Marcar como Cancelada').item.json.id }},\n  'reagendamento',\n  'Paciente cancelou via WhatsApp. Remarcar.',\n  'vendedora',\n  'alta';",
-        "options": {}
-      },
-      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
-    },
-    {
-      "id": "resp-012",
-      "name": "Resposta OK",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
-      "position": [1200, 180],
-      "parameters": {}
     }
+
   ],
   "connections": {
-    "Webhook: Resposta da Paciente": {
-      "main": [[{ "node": "Extrair Dados da Resposta", "type": "main", "index": 0 }]]
+    "Webhook: Resposta Confirmacao": {
+      "main": [[{ "node": "Code: Extrair Resposta", "type": "main", "index": 0 }]]
     },
-    "Extrair Dados da Resposta": {
-      "main": [[{ "node": "Confirmou ou Cancelou?", "type": "main", "index": 0 }]]
+    "Code: Extrair Resposta": {
+      "main": [[{ "node": "DB: Buscar Agendamento", "type": "main", "index": 0 }]]
     },
-    "Confirmou ou Cancelou?": {
+    "DB: Buscar Agendamento": {
+      "main": [[{ "node": "Code: Preparar Dados", "type": "main", "index": 0 }]]
+    },
+    "Code: Preparar Dados": {
+      "main": [[{ "node": "IF: Confirmou?", "type": "main", "index": 0 }]]
+    },
+    "IF: Confirmou?": {
       "main": [
-        [{ "node": "DB: Marcar como Confirmada", "type": "main", "index": 0 }],
-        [{ "node": "DB: Marcar como Cancelada",  "type": "main", "index": 0 }]
+        [{ "node": "CLINT: Mover para Confirmado", "type": "main", "index": 0 }],
+        [{ "node": "CLINT: Mover para Reagendar", "type": "main", "index": 0 }]
       ]
     },
-    "DB: Marcar como Confirmada": {
-      "main": [[{ "node": "🔵 CLINT: Mover Card para Confirmado", "type": "main", "index": 0 }]]
+    "CLINT: Mover para Confirmado": {
+      "main": [[{ "node": "DB: Marcar Confirmado", "type": "main", "index": 0 }]]
     },
-    "🔵 CLINT: Mover Card para Confirmado": {
-      "main": [[{ "node": "Resposta OK", "type": "main", "index": 0 }]]
-    },
-    "DB: Marcar como Cancelada": {
-      "main": [[{ "node": "BELLE: Cancelar Agendamento", "type": "main", "index": 0 }]]
-    },
-    "BELLE: Cancelar Agendamento": {
-      "main": [[{ "node": "🔵 CLINT: Mover Card para Reagendamento", "type": "main", "index": 0 }]]
-    },
-    "🔵 CLINT: Mover Card para Reagendamento": {
-      "main": [[{ "node": "🔵 CLINT: Criar Tarefa Reagendamento", "type": "main", "index": 0 }]]
-    },
-    "🔵 CLINT: Criar Tarefa Reagendamento": {
-      "main": [[{ "node": "🔵 CLINT: Enviar MSG Retorno ao Cancelamento", "type": "main", "index": 0 }]]
-    },
-    "🔵 CLINT: Enviar MSG Retorno ao Cancelamento": {
-      "main": [[{ "node": "DB: Tarefa Reagendamento no Banco", "type": "main", "index": 0 }]]
+    "CLINT: Mover para Reagendar": {
+      "main": [[{ "node": "DB: Marcar Cancelado", "type": "main", "index": 0 }]]
     }
   },
   "active": false,
-  "settings": { "executionOrder": "v1" },
-  "pinData": {},
-  "notes": "Recebe webhook do Clint com a resposta da paciente. Confirmar → atualiza DB + move card. Cancelar → cancela no Belle + move para Reagendamento + cria tarefa + envia mensagem. URL do webhook: SEU_N8N/webhook/confirmacao-resposta"
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "notes": "Recebe webhook do Clint com resposta da paciente. Confirmar → move card para Confirmado + registra no banco. Cancelar → move card para Reagendar + registra no banco. PENDENTE: trocar credencial Postgres (3 nos) de supabase-afiliadotruppel para PostgreSQL Odara. Registrar URL do webhook no Clint quando acesso restaurado. Ativar somente apos 02a estar enviando mensagens."
 }

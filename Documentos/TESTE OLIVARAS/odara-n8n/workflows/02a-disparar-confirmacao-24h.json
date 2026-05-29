@@ -1,153 +1,101 @@
 {
-  "name": "ODARA | 02a - Disparar Confirmação 24h Antes",
+  "id": "tfQ5mzY8flgMPbG6",
+  "name": "ODARA | 02a - Disparar Confirmacao 24h",
   "nodes": [
+
     {
-      "id": "c24-001",
-      "name": "A cada 1 hora",
+      "id": "46f2a88b-cf4c-45d3-a2d2-cceeacaf4bc4",
+      "name": "Schedule 20h BRT",
       "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.1,
-      "position": [100, 300],
+      "typeVersion": 1.3,
+      "position": [240, 304],
       "parameters": {
-        "rule": { "interval": [{ "field": "hours", "hoursInterval": 1 }] }
-      }
-    },
-    {
-      "id": "c24-002",
-      "name": "DB: Buscar Agendamentos para Confirmar",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [320, 300],
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT\n  a.id,\n  a.belle_id,\n  a.clint_card_id,\n  a.nome_cliente,\n  a.celular_cliente,\n  a.data_hora,\n  a.hr_consulta,\n  a.dt_agenda,\n  a.servicos,\n  a.nome_profissional\nFROM agendamentos a\nWHERE\n  a.status = 'Marcado'\n  AND a.confirmacao_enviada = FALSE\n  AND a.data_hora IS NOT NULL\n  AND a.data_hora > NOW() + INTERVAL '23 hours'\n  AND a.data_hora < NOW() + INTERVAL '25 hours'\nORDER BY a.data_hora ASC;",
-        "options": {}
-      },
-      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
-    },
-    {
-      "id": "c24-003",
-      "name": "Há agendamentos para confirmar?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [540, 300],
-      "parameters": {
-        "conditions": {
-          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
-          "conditions": [
-            {
-              "id": "cond-c24-001",
-              "leftValue": "={{ $input.all().length }}",
-              "rightValue": 0,
-              "operator": { "type": "number", "operation": "gt" }
-            }
-          ],
-          "combinator": "and"
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 23 * * *" }]
         }
       }
     },
+
     {
-      "id": "c24-004",
-      "name": "Loop por Agendamento",
-      "type": "n8n-nodes-base.splitInBatches",
-      "typeVersion": 3,
-      "position": [760, 200],
-      "parameters": { "batchSize": 1, "options": {} }
+      "id": "40c9ae46-0d61-4de6-b75f-d030057c6605",
+      "name": "DB: Buscar Agendamentos Amanha",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [464, 304],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT a.id, a.clint_card_id, a.data_hora::text, a.hr_consulta, a.nome_profissional,\n       c.clint_contact_uuid, c.nome as nome_cliente, c.celular, c.email\nFROM agendamentos a\nLEFT JOIN clientes c ON c.belle_id::text = a.belle_cliente_cod\nWHERE DATE(a.data_hora) = CURRENT_DATE + 1\n  AND a.confirmacao_enviada = FALSE\n  AND a.clint_card_id IS NOT NULL\n  AND a.status != 'Cancelado'\nORDER BY a.data_hora ASC\nLIMIT 20",
+        "options": {}
+      }
     },
+
     {
-      "id": "c24-005",
-      "name": "Montar Dados da Mensagem",
+      "id": "aedafe55-fa43-4bd6-a723-82b2e47aac94",
+      "name": "Code: Preparar Contato",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [960, 200],
+      "position": [688, 304],
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const a = $input.item.json;\n\n// Formatar data/hora\nconst dataHora = new Date(a.data_hora);\nconst diaSemana = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'][dataHora.getDay()];\nconst dia  = String(dataHora.getDate()).padStart(2,'0');\nconst mes  = String(dataHora.getMonth()+1).padStart(2,'0');\nconst hora = `${String(dataHora.getHours()).padStart(2,'0')}:${String(dataHora.getMinutes()).padStart(2,'0')}`;\n\n// Extrair nomes dos serviços\nlet servicos = [];\ntry { servicos = JSON.parse(a.servicos || '[]'); } catch(e) {}\nconst nomeServico = servicos.map(s => s.nome).join(', ') || 'seu procedimento';\n\nreturn {\n  json: {\n    ...a,\n    data_formatada: `${diaSemana}, ${dia}/${mes}`,\n    hora_formatada: hora,\n    nome_servico: nomeServico,\n    mensagem_confirmacao: `Olá ${a.nome_cliente}! 😊\\n\\nLembramos que você tem um agendamento amanhã:\\n📅 ${diaSemana}, ${dia}/${mes} às ${hora}\\n💆 ${nomeServico}\\n\\nPor favor, confirme sua presença:\\n✅ CONFIRMAR\\n❌ CANCELAR`\n  }\n};"
+        "jsCode": "const item = $input.item.json;\n\n// Primeiro nome do lead\nconst nome = (item.nome_cliente || '').trim().split(' ')[0] || 'Cliente';\nconst email = item.email || '';\n\n// Formatar celular em E.164 (+55XXXXXXXXXX)\nconst digits = (item.celular || '').replace(/\\D/g, '');\nlet telefone;\nif (digits.startsWith('55') && digits.length >= 12) {\n  telefone = '+' + digits;\n} else if (digits.length >= 10) {\n  telefone = '+55' + digits;\n} else {\n  throw new Error('[02a] Celular inválido para agendamento ' + item.id);\n}\n\n// Obter contact_id via clint_contact_uuid ou fallback ao deal\nlet contact_id = item.clint_contact_uuid || null;\n\nif (!contact_id && item.clint_card_id) {\n  const token = 'U2FsdGVkX18o3kwB1pZCF/BjjfgN8GgFjmt5Fkzf06JXZIbAkVToB6ZLKPIljW7mSS0ESoxnErXsL9DXE+ZGVg==';\n  try {\n    const deal = await this.helpers.httpRequest({\n      method: 'GET',\n      url: 'https://api.clint.digital/v1/deals/' + item.clint_card_id,\n      headers: { 'api-token': token },\n      json: true\n    });\n    const c = deal.data?.contact || deal.contact || {};\n    contact_id = c.id || null;\n  } catch(e) {\n    console.log('[02a] Erro ao buscar deal: ' + e.message);\n  }\n}\n\nif (!contact_id) {\n  throw new Error('[02a] Sem contact_id para agendamento ' + item.id);\n}\n\nreturn { json: { agendamento_id: item.id, clint_card_id: item.clint_card_id, contact_id, nome, email, telefone } };"
       }
     },
+
     {
-      "id": "c24-006",
-      "name": "🔵 CLINT: Enviar MSG Confirmação com Botões",
+      "id": "978f1aba-6952-4cd9-a7f6-53c8e0e93541",
+      "name": "ENVIA MSG 24H",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1160, 200],
+      "position": [912, 304],
       "parameters": {
         "method": "POST",
-        "url": "https://SEU_DOMINIO_CLINT/api/messages/send",
-        "sendHeaders": true,
-        "headerParameters": {
+        "url": "=https://functions-api.clint.digital/endpoints/integration/webhook/2c443cd2-8300-4202-b2d3-2b0efa85f707",
+        "sendBody": true,
+        "bodyParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "Bearer SEU_TOKEN_CLINT" },
-            { "name": "Content-Type", "value": "application/json" }
+            { "name": "nome", "value": "={{ $('Code: Preparar Contato').item.json.nome }}" },
+            { "name": "email", "value": "={{ $('Code: Preparar Contato').item.json.email }}" },
+            { "name": "telefone", "value": "={{ $('Code: Preparar Contato').item.json.telefone }}" }
           ]
         },
-        "sendBody": true,
-        "contentType": "json",
-        "body": "={\n  \"action\": \"enviar_confirmacao_24h\",\n  \"agendamento_belle_id\": {{ $json.belle_id }},\n  \"agendamento_db_id\": {{ $json.id }},\n  \"telefone\": \"{{ $json.celular_cliente }}\",\n  \"mensagem\": \"{{ $json.mensagem_confirmacao }}\",\n  \"botoes\": [\n    { \"id\": \"confirmar\", \"texto\": \"✅ Confirmar\" },\n    { \"id\": \"cancelar\",  \"texto\": \"❌ Cancelar\" }\n  ],\n  \"metadata\": {\n    \"tipo\": \"confirmacao_24h\",\n    \"agendamento_id\": {{ $json.id }},\n    \"data_hora\": \"{{ $json.data_hora }}\"\n  }\n}",
         "options": {}
       }
     },
+
     {
-      "id": "c24-007",
-      "name": "DB: Marcar Confirmação como Enviada",
+      "id": "65cdd84f-b63c-49ed-ae06-ce55d04c065b",
+      "name": "DB: Marcar Confirmacao Enviada",
       "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [1380, 200],
+      "typeVersion": 2.6,
+      "position": [1120, 304],
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE agendamentos\nSET confirmacao_enviada = TRUE,\n    confirmacao_enviada_em = NOW()\nWHERE id = {{ $('Montar Dados da Mensagem').item.json.id }}\nRETURNING id, belle_id, nome_cliente;",
-        "options": {}
-      },
-      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
-    },
-    {
-      "id": "c24-008",
-      "name": "DB: Log da Mensagem",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [1580, 200],
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "INSERT INTO mensagens_log (agendamento_id, tipo, mensagem, enviada_em)\nVALUES (\n  {{ $('Montar Dados da Mensagem').item.json.id }},\n  'confirmacao_24h',\n  '{{ $('Montar Dados da Mensagem').item.json.mensagem_confirmacao.replace(/'/g, \"''\") }}',\n  NOW()\n);",
-        "options": {}
-      },
-      "credentials": { "postgres": { "id": "POSTGRES_CREDENTIAL_ID", "name": "PostgreSQL Odara" } }
-    },
-    {
-      "id": "c24-009",
-      "name": "Sem agendamentos — parar",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
-      "position": [760, 420],
-      "parameters": {}
+        "query": "UPDATE agendamentos SET confirmacao_enviada = TRUE, confirmacao_enviada_em = NOW(), atualizado_em = NOW() WHERE id = $1::uuid",
+        "options": {
+          "queryReplacement": "={{ $('Code: Preparar Contato').item.json.agendamento_id }}"
+        }
+      }
     }
+
   ],
   "connections": {
-    "A cada 1 hora": {
-      "main": [[{ "node": "DB: Buscar Agendamentos para Confirmar", "type": "main", "index": 0 }]]
+    "Schedule 20h BRT": {
+      "main": [[{ "node": "DB: Buscar Agendamentos Amanha", "type": "main", "index": 0 }]]
     },
-    "DB: Buscar Agendamentos para Confirmar": {
-      "main": [[{ "node": "Há agendamentos para confirmar?", "type": "main", "index": 0 }]]
+    "DB: Buscar Agendamentos Amanha": {
+      "main": [[{ "node": "Code: Preparar Contato", "type": "main", "index": 0 }]]
     },
-    "Há agendamentos para confirmar?": {
-      "main": [
-        [{ "node": "Loop por Agendamento", "type": "main", "index": 0 }],
-        [{ "node": "Sem agendamentos — parar", "type": "main", "index": 0 }]
-      ]
+    "Code: Preparar Contato": {
+      "main": [[{ "node": "ENVIA MSG 24H", "type": "main", "index": 0 }]]
     },
-    "Loop por Agendamento": {
-      "main": [[{ "node": "Montar Dados da Mensagem", "type": "main", "index": 0 }]]
-    },
-    "Montar Dados da Mensagem": {
-      "main": [[{ "node": "🔵 CLINT: Enviar MSG Confirmação com Botões", "type": "main", "index": 0 }]]
-    },
-    "🔵 CLINT: Enviar MSG Confirmação com Botões": {
-      "main": [[{ "node": "DB: Marcar Confirmação como Enviada", "type": "main", "index": 0 }]]
-    },
-    "DB: Marcar Confirmação como Enviada": {
-      "main": [[{ "node": "DB: Log da Mensagem", "type": "main", "index": 0 }]]
+    "ENVIA MSG 24H": {
+      "main": [[{ "node": "DB: Marcar Confirmacao Enviada", "type": "main", "index": 0 }]]
     }
   },
   "active": false,
-  "settings": { "executionOrder": "v1" },
-  "pinData": {}
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "notes": "Roda diariamente às 20h BRT — busca agendamentos de amanhã sem confirmação enviada, prepara nome/email/telefone do lead, dispara via webhook Clint automation e marca no banco. PENDENTE: trocar credencial dos 2 nós Postgres de supabase-afiliadotruppel para PostgreSQL Odara."
 }

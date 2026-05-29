@@ -124,7 +124,7 @@
       "credentials": { "postgres": { "id": "6W46gLQ9cENri003", "name": "PostgreSQL Odara" } },
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\n  a.id, a.belle_id, a.status, a.dt_agenda::text as dt_agenda,\n  a.hr_consulta, a.nome_profissional, a.servicos::text as servicos,\n  c.clint_contact_uuid, c.nome as nome_cliente\nFROM agendamentos a\nJOIN clientes c ON c.belle_id::text = a.belle_cliente_cod\nWHERE a.data_hora BETWEEN NOW()-INTERVAL '2 days' AND NOW()+INTERVAL '30 days'\n  AND c.clint_contact_uuid IS NOT NULL\n  AND a.clint_card_id IS NULL\nORDER BY a.data_hora ASC LIMIT 20",
+        "query": "SELECT\n  a.id, a.belle_id, a.status, a.dt_agenda::text as dt_agenda,\n  a.hr_consulta, a.nome_profissional, a.servicos::text as servicos,\n  c.clint_contact_uuid, c.nome as nome_cliente\nFROM agendamentos a\nJOIN clientes c ON c.belle_id::text = a.belle_cliente_cod\nWHERE a.data_hora BETWEEN NOW()-INTERVAL '2 days' AND NOW()+INTERVAL '30 days'\n  AND c.clint_contact_uuid IS NOT NULL\n  AND a.clint_card_id IS NULL\n  AND NOT EXISTS (\n    SELECT 1 FROM vendas v\n    WHERE v.cliente_id = c.id\n    AND v.status_plano = 'Aprovado'\n  )\nORDER BY a.data_hora ASC LIMIT 20",
         "options": {}
       },
       "alwaysOutputData": true
