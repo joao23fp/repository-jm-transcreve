@@ -111,6 +111,8 @@ Automatizar confirmações de agendamento, pós-atendimento, nurturing de leads 
 | 3 | **Nurturing pós-60d sem decisão** | 07e incompleto | Equipe decide: para? repete mensalmente? outra cadência? |
 | 4 | **Campo `belle_id` no Clint não criado** | WF-B envia o valor mas campo não existe no painel | Criar manualmente: Configurações → Campos → CONTACT → Texto |
 | 5 | **MAP-C — mapeamento de serviços Belle ↔ Clint** | WF-B não cria vendas Belle completas sem essa tabela | Construir workflow que busca catálogo Belle e popula `servicos_mapeamento` |
+| 6 | **Workflow de captura de leads perdidos não existe** | Tabela `leads` não é alimentada automaticamente — 07e (Nurturing) nunca dispara sem isso | Construir workflow que monitora deals no Clint sem conversão e insere na tabela `leads` com `status = 'perdido'` |
+| 7 | **Auditoria de alimentação dos workflows automáticos** | Alguns workflows podem nunca disparar por falta de dados na fonte (ex: `data_inicio = NULL` em vendas) | Revisar 07a, 07b, 07c, 07d, 07e, 07f, 07g e confirmar que cada um tem dados reais para processar |
 
 ---
 
