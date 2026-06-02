@@ -1,0 +1,1109 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            { "name": "contact_id", "type": "any" },
+            { "name": "etapa_funil" },
+            { "name": "organization_id", "type": "any" }
+          ]
+        }
+      },
+      "id": "00100000-0000-4000-8001-000000000001",
+      "name": "Start",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [-2400, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, organization_id, name, email, phone\nFROM contacts\nWHERE id = '{{ $json.contact_id }}'::UUID\n  AND organization_id = '{{ $json.organization_id }}'::UUID\nLIMIT 1;",
+        "options": {}
+      },
+      "id": "00100000-0000-4000-8001-000000000002",
+      "name": "Busca Contato",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-2160, 300],
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "OU8cyzGlL8UbRk7p",
+          "name": "supabase-afiliadotruppel"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "00100000-0000-4000-8001-cond00000003",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "00100000-0000-4000-8001-000000000003",
+      "name": "IF: Contato existe?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-1920, 300]
+    },
+    {
+      "parameters": {},
+      "id": "00100000-0000-4000-8001-000000000004",
+      "name": "NoOp: Contato nao encontrado",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [-1680, 550]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "asgn-contact-001",
+              "name": "contact_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "asgn-contact-002",
+              "name": "organization_id",
+              "value": "={{ $json.organization_id }}",
+              "type": "string"
+            },
+            {
+              "id": "asgn-contact-003",
+              "name": "nome",
+              "value": "={{ $json.name }}",
+              "type": "string"
+            },
+            {
+              "id": "asgn-contact-004",
+              "name": "email",
+              "value": "={{ $json.email }}",
+              "type": "string"
+            },
+            {
+              "id": "asgn-contact-005",
+              "name": "telefone",
+              "value": "={{ $json.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "asgn-contact-006",
+              "name": "etapa_funil",
+              "value": "={{ $('Start').first().json.etapa_funil }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "00100000-0000-4000-8001-000000000005",
+      "name": "Variaveis do Contato",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-1680, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT etapa_nome\nFROM followup_status_atual\nWHERE contact_id = '{{ $('Variaveis do Contato').first().json.contact_id }}'::UUID\nLIMIT 1;",
+        "options": {}
+      },
+      "id": "00100000-0000-4000-8001-000000000006",
+      "name": "Busca Status Atual",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-1440, 300],
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "OU8cyzGlL8UbRk7p",
+          "name": "supabase-afiliadotruppel"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "asgn-status-001",
+              "name": "etapa_atual",
+              "value": "={{ $json.etapa_nome || '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "00100000-0000-4000-8001-000000000007",
+      "name": "Variaveis de Status",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-1200, 300]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+                "conditions": [{ "id": "sw-cond-01", "leftValue": "={{ $('Variaveis do Contato').first().json.etapa_funil }}", "rightValue": "Base", "operator": { "type": "string", "operation": "equals" } }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Base"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+                "conditions": [{ "id": "sw-cond-02", "leftValue": "={{ $('Variaveis do Contato').first().json.etapa_funil }}", "rightValue": "Em Contato", "operator": { "type": "string", "operation": "equals" } }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Em Contato"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+                "conditions": [{ "id": "sw-cond-03", "leftValue": "={{ $('Variaveis do Contato').first().json.etapa_funil }}", "rightValue": "Dia 1", "operator": { "type": "string", "operation": "equals" } }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Dia 1"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+                "conditions": [{ "id": "sw-cond-04", "leftValue": "={{ $('Variaveis do Contato').first().json.etapa_funil }}", "rightValue": "Dia 2", "operator": { "type": "string", "operation": "equals" } }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Dia 2"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+                "conditions": [{ "id": "sw-cond-05", "leftValue": "={{ $('Variaveis do Contato').first().json.etapa_funil }}", "rightValue": "Dia 3", "operator": { "type": "string", "operation": "equals" } }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Dia 3"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+                "conditions": [{ "id": "sw-cond-06", "leftValue": "={{ $('Variaveis do Contato').first().json.etapa_funil }}", "rightValue": "Negociacao Fria", "operator": { "type": "string", "operation": "equals" } }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Negociacao Fria"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+                "conditions": [{ "id": "sw-cond-07", "leftValue": "={{ $('Variaveis do Contato').first().json.etapa_funil }}", "rightValue": "Negociacao Quente", "operator": { "type": "string", "operation": "equals" } }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Negociacao Quente"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "00100000-0000-4000-8001-000000000008",
+      "name": "Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [-960, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT contact_id, etapa_nova, created_at,\n  EXTRACT(DAY FROM NOW() - created_at)::integer AS dias_desde_criacao\nFROM followup_historico\nWHERE contact_id = '{{ $('Variaveis do Contato').first().json.contact_id }}'::UUID\n  AND organization_id = '{{ $('Variaveis do Contato').first().json.organization_id }}'::UUID\n  AND etapa_nova = 'Base'\nORDER BY created_at DESC\nLIMIT 1;",
+        "options": {}
+      },
+      "id": "00200000-0000-4000-8002-000000000001",
+      "name": "Verifica Historico Base",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-720, 300],
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "OU8cyzGlL8UbRk7p",
+          "name": "supabase-afiliadotruppel"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            { "id": "thr-base-01", "leftValue": "={{ $json.dias_desde_criacao }}", "rightValue": 10, "operator": { "type": "number", "operation": "gte" } },
+            { "id": "thr-base-02", "leftValue": "={{ $json.dias_desde_criacao }}", "rightValue": "", "operator": { "type": "number", "operation": "empty", "singleValue": true } }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "00200000-0000-4000-8002-000000000002",
+      "name": "IF Threshold Base",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-480, 300]
+    },
+    {
+      "parameters": {},
+      "id": "00200000-0000-4000-8002-000000000003",
+      "name": "NoOp Bloqueado Base",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [-240, 550]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.followup_historico (organization_id, contact_id, etapa_anterior, etapa_nova, motivo, created_at)\nVALUES (\n  '{{ $('Variaveis do Contato').first().json.organization_id }}'::UUID,\n  '{{ $('Variaveis do Contato').first().json.contact_id }}'::UUID,\n  NULLIF('{{ $('Variaveis de Status').first().json.etapa_atual }}', ''),\n  'Base',\n  'followup_automatico',\n  NOW() - INTERVAL '3 hours'\n);",
+        "options": {}
+      },
+      "id": "00200000-0000-4000-8002-000000000004",
+      "name": "Registra Historico Base",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-240, 300],
+      "credentials": {
+        "postgres": {
+          "id": "OU8cyzGlL8UbRk7p",
+          "name": "supabase-afiliadotruppel"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.followup_status_atual (id, organization_id, contact_id, etapa_nome, ultima_acao_em, updated_at)\nVALUES (\n  gen_random_uuid(),\n  '{{ $('Variaveis do Contato').first().json.organization_id }}'::UUID,\n  '{{ $('Variaveis do Contato').first().json.contact_id }}'::UUID,\n  'Base',\n  NOW() - INTERVAL '3 hours',\n  NOW() - INTERVAL '3 hours'\n)\nON CONFLICT (contact_id)\nDO UPDATE SET\n  etapa_nome     = EXCLUDED.etapa_nome,\n  ultima_acao_em = NOW() - INTERVAL '3 hours',\n  updated_at     = NOW() - INTERVAL '3 hours'\nWHERE\n  followup_status_atual.etapa_nome NOT IN ('Negociacao Fria', 'Negociacao Quente');",
+        "options": {}
+      },
+      "id": "00200000-0000-4000-8002-000000000005",
+      "name": "Atualiza Status Base",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [0, 300],
+      "credentials": {
+        "postgres": {
+          "id": "OU8cyzGlL8UbRk7p",
+          "name": "supabase-afiliadotruppel"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://functions-api.clint.digital/endpoints/integration/webhook/444d0784-976d-411b-8582-08ded943a245",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "nome", "value": "={{ $('Variaveis do Contato').first().json.nome }}" },
+            { "name": "email", "value": "={{ $('Variaveis do Contato').first().json.email }}" },
+            { "name": "telefone", "value": "={{ $('Variaveis do Contato').first().json.telefone }}" },
+            { "name": "etapa_funil", "value": "={{ $('Variaveis do Contato').first().json.etapa_funil }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "00200000-0000-4000-8002-000000000006",
+      "name": "Dispara Clint Base",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT contact_id, etapa_nova, created_at,\n  EXTRACT(DAY FROM NOW() - created_at)::integer AS dias_desde_criacao\nFROM followup_historico\nWHERE contact_id = '{{ $('Variaveis do Contato').first().json.contact_id }}'::UUID\n  AND organization_id = '{{ $('Variaveis do Contato').first().json.organization_id }}'::UUID\n  AND etapa_nova = 'Em Contato'\nORDER BY created_at DESC\nLIMIT 1;",
+        "options": {}
+      },
+      "id": "00300000-0000-4000-8003-000000000001",
+      "name": "Verifica Historico Em Contato",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-720, 900],
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "OU8cyzGlL8UbRk7p",
+          "name": "supabase-afiliadotruppel"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            { "id": "thr-ec-01", "leftValue": "={{ $json.dias_desde_criacao }}", "rightValue": 10, "operator": { "type": "number", "operation": "gte" } },
+            { "id": "thr-ec-02", "leftValue": "={{ $json.dias_desde_criacao }}", "rightValue": "", "operator": { "type": "number", "operation": "empty", "singleValue": true } }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "00300000-0000-4000-8003-000000000002",
+      "name": "IF Threshold Em Contato",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-480, 900]
+    },
+    {
+      "parameters": {},
+      "id": "00300000-0000-4000-8003-000000000003",
+      "name": "NoOp Bloqueado Em Contato",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [-240, 1150]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.followup_historico (organization_id, contact_id, etapa_anterior, etapa_nova, motivo, created_at)\nVALUES (\n  '{{ $('Variaveis do Contato').first().json.organization_id }}'::UUID,\n  '{{ $('Variaveis do Contato').first().json.contact_id }}'::UUID,\n  NULLIF('{{ $('Variaveis de Status').first().json.etapa_atual }}', ''),\n  'Em Contato',\n  'followup_automatico',\n  NOW() - INTERVAL '3 hours'\n);",
+        "options": {}
+      },
+      "id": "00300000-0000-4000-8003-000000000004",
+      "name": "Registra Historico Em Contato",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-240, 900],
+      "credentials": {
+        "postgres": {
+          "id": "OU8cyzGlL8UbRk7p",
+          "name": "supabase-afiliadotruppel"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.followup_status_atual (id, organization_id, contact_id, etapa_nome, ultima_acao_em, updated_at)\nVALUES (\n  gen_random_uuid(),\n  '{{ $('Variaveis do Contato').first().json.organization_id }}'::UUID,\n  '{{ $('Variaveis do Contato').first().json.contact_id }}'::UUID,\n  'Em Contato',\n  NOW() - INTERVAL '3 hours',\n  NOW() - INTERVAL '3 hours'\n)\nON CONFLICT (contact_id)\nDO UPDATE SET\n  etapa_nome     = EXCLUDED.etapa_nome,\n  ultima_acao_em = NOW() - INTERVAL '3 hours',\n  updated_at     = NOW() - INTERVAL '3 hours'\nWHERE\n  followup_status_atual.etapa_nome NOT IN ('Negociacao Fria', 'Negociacao Quente');",
+        "options": {}
+      },
+      "id": "00300000-0000-4000-8003-000000000005",
+      "name": "Atualiza Status Em Contato",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [0, 900],
+      "credentials": {
+        "postgres": {
+          "id": "OU8cyzGlL8UbRk7p",
+          "name": "supabase-afiliadotruppel"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://functions-api.clint.digital/endpoints/integration/webhook/8d91a27e-2743-4eaf-bfb9-4dbd93957ce7",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "nome", "value": "={{ $('Variaveis do Contato').first().json.nome }}" },
+            { "name": "email", "value": "={{ $('Variaveis do Contato').first().json.email }}" },
+            { "name": "telefone", "value": "={{ $('Variaveis do Contato').first().json.telefone }}" },
+            { "name": "etapa_funil", "value": "={{ $('Variaveis do Contato').first().json.etapa_funil }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "00300000-0000-4000-8003-000000000006",
+      "name": "Dispara Clint Em Contato",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 900]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT contact_id, etapa_nova, created_at,\n  EXTRACT(DAY FROM NOW() - created_at)::integer AS dias_desde_criacao\nFROM followup_historico\nWHERE contact_id = '{{ $('Variaveis do Contato').first().json.contact_id }}'::UUID\n  AND organization_id = '{{ $('Variaveis do Contato').first().json.organization_id }}'::UUID\n  AND etapa_nova = 'Dia 1'\nORDER BY created_at DESC\nLIMIT 1;",
+        "options": {}
+      },
+      "id": "00400000-0000-4000-8004-000000000001",
+      "name": "Verifica Historico Dia 1",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-720, 1500],
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "OU8cyzGlL8UbRk7p",
+          "name": "supabase-afiliadotruppel"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            { "id": "thr-d1-01", "leftValue": "={{ $json.dias_desde_criacao }}", "rightValue": 10, "operator": { "type": "number", "operation": "gte" } },
+            { "id": "thr-d1-02", "leftValue": "={{ $json.dias_desde_criacao }}", "rightValue": "", "operator": { "type": "number", "operation": "empty", "singleValue": true } }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "00400000-0000-4000-8004-000000000002",
+      "name": "IF Threshold Dia 1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-480, 1500]
+    },
+    {
+      "parameters": {},
+      "id": "00400000-0000-4000-8004-000000000003",
+      "name": "NoOp Bloqueado Dia 1",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [-240, 1750]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.followup_historico (organization_id, contact_id, etapa_anterior, etapa_nova, motivo, created_at)\nVALUES (\n  '{{ $('Variaveis do Contato').first().json.organization_id }}'::UUID,\n  '{{ $('Variaveis do Contato').first().json.contact_id }}'::UUID,\n  NULLIF('{{ $('Variaveis de Status').first().json.etapa_atual }}', ''),\n  'Dia 1',\n  'followup_automatico',\n  NOW() - INTERVAL '3 hours'\n);",
+        "options": {}
+      },
+      "id": "00400000-0000-4000-8004-000000000004",
+      "name": "Registra Historico Dia 1",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-240, 1500],
+      "credentials": {
+        "postgres": {
+          "id": "OU8cyzGlL8UbRk7p",
+          "name": "supabase-afiliadotruppel"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.followup_status_atual (id, organization_id, contact_id, etapa_nome, ultima_acao_em, updated_at)\nVALUES (\n  gen_random_uuid(),\n  '{{ $('Variaveis do Contato').first().json.organization_id }}'::UUID,\n  '{{ $('Variaveis do Contato').first().json.contact_id }}'::UUID,\n  'Dia 1',\n  NOW() - INTERVAL '3 hours',\n  NOW() - INTERVAL '3 hours'\n)\nON CONFLICT (contact_id)\nDO UPDATE SET\n  etapa_nome     = EXCLUDED.etapa_nome,\n  ultima_acao_em = NOW() - INTERVAL '3 hours',\n  updated_at     = NOW() - INTERVAL '3 hours'\nWHERE\n  followup_status_atual.etapa_nome NOT IN ('Negociacao Fria', 'Negociacao Quente');",
+        "options": {}
+      },
+      "id": "00400000-0000-4000-8004-000000000005",
+      "name": "Atualiza Status Dia 1",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [0, 1500],
+      "credentials": {
+        "postgres": {
+          "id": "OU8cyzGlL8UbRk7p",
+          "name": "supabase-afiliadotruppel"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://functions-api.clint.digital/endpoints/integration/webhook/8d91a27e-2743-4eaf-bfb9-4dbd93957ce7",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "nome", "value": "={{ $('Variaveis do Contato').first().json.nome }}" },
+            { "name": "email", "value": "={{ $('Variaveis do Contato').first().json.email }}" },
+            { "name": "telefone", "value": "={{ $('Variaveis do Contato').first().json.telefone }}" },
+            { "name": "etapa_funil", "value": "={{ $('Variaveis do Contato').first().json.etapa_funil }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "00400000-0000-4000-8004-000000000006",
+      "name": "Dispara Clint Dia 1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 1500]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT contact_id, etapa_nova, created_at,\n  EXTRACT(DAY FROM NOW() - created_at)::integer AS dias_desde_criacao\nFROM followup_historico\nWHERE contact_id = '{{ $('Variaveis do Contato').first().json.contact_id }}'::UUID\n  AND organization_id = '{{ $('Variaveis do Contato').first().json.organization_id }}'::UUID\n  AND etapa_nova = 'Dia 2'\nORDER BY created_at DESC\nLIMIT 1;",
+        "options": {}
+      },
+      "id": "00500000-0000-4000-8005-000000000001",
+      "name": "Verifica Historico Dia 2",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-720, 2100],
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "OU8cyzGlL8UbRk7p",
+          "name": "supabase-afiliadotruppel"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            { "id": "thr-d2-01", "leftValue": "={{ $json.dias_desde_criacao }}", "rightValue": 10, "operator": { "type": "number", "operation": "gte" } },
+            { "id": "thr-d2-02", "leftValue": "={{ $json.dias_desde_criacao }}", "rightValue": "", "operator": { "type": "number", "operation": "empty", "singleValue": true } }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "00500000-0000-4000-8005-000000000002",
+      "name": "IF Threshold Dia 2",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-480, 2100]
+    },
+    {
+      "parameters": {},
+      "id": "00500000-0000-4000-8005-000000000003",
+      "name": "NoOp Bloqueado Dia 2",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [-240, 2350]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.followup_historico (organization_id, contact_id, etapa_anterior, etapa_nova, motivo, created_at)\nVALUES (\n  '{{ $('Variaveis do Contato').first().json.organization_id }}'::UUID,\n  '{{ $('Variaveis do Contato').first().json.contact_id }}'::UUID,\n  NULLIF('{{ $('Variaveis de Status').first().json.etapa_atual }}', ''),\n  'Dia 2',\n  'followup_automatico',\n  NOW() - INTERVAL '3 hours'\n);",
+        "options": {}
+      },
+      "id": "00500000-0000-4000-8005-000000000004",
+      "name": "Registra Historico Dia 2",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-240, 2100],
+      "credentials": {
+        "postgres": {
+          "id": "OU8cyzGlL8UbRk7p",
+          "name": "supabase-afiliadotruppel"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.followup_status_atual (id, organization_id, contact_id, etapa_nome, ultima_acao_em, updated_at)\nVALUES (\n  gen_random_uuid(),\n  '{{ $('Variaveis do Contato').first().json.organization_id }}'::UUID,\n  '{{ $('Variaveis do Contato').first().json.contact_id }}'::UUID,\n  'Dia 2',\n  NOW() - INTERVAL '3 hours',\n  NOW() - INTERVAL '3 hours'\n)\nON CONFLICT (contact_id)\nDO UPDATE SET\n  etapa_nome     = EXCLUDED.etapa_nome,\n  ultima_acao_em = NOW() - INTERVAL '3 hours',\n  updated_at     = NOW() - INTERVAL '3 hours'\nWHERE\n  followup_status_atual.etapa_nome NOT IN ('Negociacao Fria', 'Negociacao Quente');",
+        "options": {}
+      },
+      "id": "00500000-0000-4000-8005-000000000005",
+      "name": "Atualiza Status Dia 2",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [0, 2100],
+      "credentials": {
+        "postgres": {
+          "id": "OU8cyzGlL8UbRk7p",
+          "name": "supabase-afiliadotruppel"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://functions-api.clint.digital/endpoints/integration/webhook/8d91a27e-2743-4eaf-bfb9-4dbd93957ce7",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "nome", "value": "={{ $('Variaveis do Contato').first().json.nome }}" },
+            { "name": "email", "value": "={{ $('Variaveis do Contato').first().json.email }}" },
+            { "name": "telefone", "value": "={{ $('Variaveis do Contato').first().json.telefone }}" },
+            { "name": "etapa_funil", "value": "={{ $('Variaveis do Contato').first().json.etapa_funil }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "00500000-0000-4000-8005-000000000006",
+      "name": "Dispara Clint Dia 2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 2100]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT contact_id, etapa_nova, created_at,\n  EXTRACT(DAY FROM NOW() - created_at)::integer AS dias_desde_criacao\nFROM followup_historico\nWHERE contact_id = '{{ $('Variaveis do Contato').first().json.contact_id }}'::UUID\n  AND organization_id = '{{ $('Variaveis do Contato').first().json.organization_id }}'::UUID\n  AND etapa_nova = 'Dia 3'\nORDER BY created_at DESC\nLIMIT 1;",
+        "options": {}
+      },
+      "id": "00600000-0000-4000-8006-000000000001",
+      "name": "Verifica Historico Dia 3",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-720, 2700],
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "OU8cyzGlL8UbRk7p",
+          "name": "supabase-afiliadotruppel"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            { "id": "thr-d3-01", "leftValue": "={{ $json.dias_desde_criacao }}", "rightValue": 10, "operator": { "type": "number", "operation": "gte" } },
+            { "id": "thr-d3-02", "leftValue": "={{ $json.dias_desde_criacao }}", "rightValue": "", "operator": { "type": "number", "operation": "empty", "singleValue": true } }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "00600000-0000-4000-8006-000000000002",
+      "name": "IF Threshold Dia 3",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-480, 2700]
+    },
+    {
+      "parameters": {},
+      "id": "00600000-0000-4000-8006-000000000003",
+      "name": "NoOp Bloqueado Dia 3",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [-240, 2950]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.followup_historico (organization_id, contact_id, etapa_anterior, etapa_nova, motivo, created_at)\nVALUES (\n  '{{ $('Variaveis do Contato').first().json.organization_id }}'::UUID,\n  '{{ $('Variaveis do Contato').first().json.contact_id }}'::UUID,\n  NULLIF('{{ $('Variaveis de Status').first().json.etapa_atual }}', ''),\n  'Dia 3',\n  'followup_automatico',\n  NOW() - INTERVAL '3 hours'\n);",
+        "options": {}
+      },
+      "id": "00600000-0000-4000-8006-000000000004",
+      "name": "Registra Historico Dia 3",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-240, 2700],
+      "credentials": {
+        "postgres": {
+          "id": "OU8cyzGlL8UbRk7p",
+          "name": "supabase-afiliadotruppel"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.followup_status_atual (id, organization_id, contact_id, etapa_nome, ultima_acao_em, updated_at)\nVALUES (\n  gen_random_uuid(),\n  '{{ $('Variaveis do Contato').first().json.organization_id }}'::UUID,\n  '{{ $('Variaveis do Contato').first().json.contact_id }}'::UUID,\n  'Dia 3',\n  NOW() - INTERVAL '3 hours',\n  NOW() - INTERVAL '3 hours'\n)\nON CONFLICT (contact_id)\nDO UPDATE SET\n  etapa_nome     = EXCLUDED.etapa_nome,\n  ultima_acao_em = NOW() - INTERVAL '3 hours',\n  updated_at     = NOW() - INTERVAL '3 hours'\nWHERE\n  followup_status_atual.etapa_nome NOT IN ('Negociacao Fria', 'Negociacao Quente');",
+        "options": {}
+      },
+      "id": "00600000-0000-4000-8006-000000000005",
+      "name": "Atualiza Status Dia 3",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [0, 2700],
+      "credentials": {
+        "postgres": {
+          "id": "OU8cyzGlL8UbRk7p",
+          "name": "supabase-afiliadotruppel"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://functions-api.clint.digital/endpoints/integration/webhook/8d91a27e-2743-4eaf-bfb9-4dbd93957ce7",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "nome", "value": "={{ $('Variaveis do Contato').first().json.nome }}" },
+            { "name": "email", "value": "={{ $('Variaveis do Contato').first().json.email }}" },
+            { "name": "telefone", "value": "={{ $('Variaveis do Contato').first().json.telefone }}" },
+            { "name": "etapa_funil", "value": "={{ $('Variaveis do Contato').first().json.etapa_funil }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "00600000-0000-4000-8006-000000000006",
+      "name": "Dispara Clint Dia 3",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 2700]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT contact_id, etapa_nova, created_at,\n  EXTRACT(DAY FROM NOW() - created_at)::integer AS dias_desde_criacao\nFROM followup_historico\nWHERE contact_id = '{{ $('Variaveis do Contato').first().json.contact_id }}'::UUID\n  AND organization_id = '{{ $('Variaveis do Contato').first().json.organization_id }}'::UUID\n  AND etapa_nova = 'Negociacao Fria'\nORDER BY created_at DESC\nLIMIT 1;",
+        "options": {}
+      },
+      "id": "00700000-0000-4000-8007-000000000001",
+      "name": "Verifica Historico Neg Fria",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-720, 3300],
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "OU8cyzGlL8UbRk7p",
+          "name": "supabase-afiliadotruppel"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            { "id": "thr-nf-01", "leftValue": "={{ $json.dias_desde_criacao }}", "rightValue": 10, "operator": { "type": "number", "operation": "gte" } },
+            { "id": "thr-nf-02", "leftValue": "={{ $json.dias_desde_criacao }}", "rightValue": "", "operator": { "type": "number", "operation": "empty", "singleValue": true } }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "00700000-0000-4000-8007-000000000002",
+      "name": "IF Threshold Neg Fria",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-480, 3300]
+    },
+    {
+      "parameters": {},
+      "id": "00700000-0000-4000-8007-000000000003",
+      "name": "NoOp Bloqueado Neg Fria",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [-240, 3550]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.followup_historico (organization_id, contact_id, etapa_anterior, etapa_nova, motivo, created_at)\nVALUES (\n  '{{ $('Variaveis do Contato').first().json.organization_id }}'::UUID,\n  '{{ $('Variaveis do Contato').first().json.contact_id }}'::UUID,\n  NULLIF('{{ $('Variaveis de Status').first().json.etapa_atual }}', ''),\n  'Negociacao Fria',\n  'followup_automatico',\n  NOW() - INTERVAL '3 hours'\n);",
+        "options": {}
+      },
+      "id": "00700000-0000-4000-8007-000000000004",
+      "name": "Registra Historico Neg Fria",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-240, 3300],
+      "credentials": {
+        "postgres": {
+          "id": "OU8cyzGlL8UbRk7p",
+          "name": "supabase-afiliadotruppel"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.followup_status_atual (id, organization_id, contact_id, etapa_nome, ultima_acao_em, updated_at)\nVALUES (\n  gen_random_uuid(),\n  '{{ $('Variaveis do Contato').first().json.organization_id }}'::UUID,\n  '{{ $('Variaveis do Contato').first().json.contact_id }}'::UUID,\n  'Negociacao Fria',\n  NOW() - INTERVAL '3 hours',\n  NOW() - INTERVAL '3 hours'\n)\nON CONFLICT (contact_id)\nDO UPDATE SET\n  etapa_nome     = EXCLUDED.etapa_nome,\n  ultima_acao_em = NOW() - INTERVAL '3 hours',\n  updated_at     = NOW() - INTERVAL '3 hours'\nWHERE\n  followup_status_atual.etapa_nome NOT IN ('Negociacao Fria', 'Negociacao Quente');",
+        "options": {}
+      },
+      "id": "00700000-0000-4000-8007-000000000005",
+      "name": "Atualiza Status Neg Fria",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [0, 3300],
+      "credentials": {
+        "postgres": {
+          "id": "OU8cyzGlL8UbRk7p",
+          "name": "supabase-afiliadotruppel"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://functions-api.clint.digital/endpoints/integration/webhook/8d91a27e-2743-4eaf-bfb9-4dbd93957ce7",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "nome", "value": "={{ $('Variaveis do Contato').first().json.nome }}" },
+            { "name": "email", "value": "={{ $('Variaveis do Contato').first().json.email }}" },
+            { "name": "telefone", "value": "={{ $('Variaveis do Contato').first().json.telefone }}" },
+            { "name": "etapa_funil", "value": "={{ $('Variaveis do Contato').first().json.etapa_funil }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "00700000-0000-4000-8007-000000000006",
+      "name": "Dispara Clint Neg Fria",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 3300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT contact_id, etapa_nova, created_at,\n  EXTRACT(DAY FROM NOW() - created_at)::integer AS dias_desde_criacao\nFROM followup_historico\nWHERE contact_id = '{{ $('Variaveis do Contato').first().json.contact_id }}'::UUID\n  AND organization_id = '{{ $('Variaveis do Contato').first().json.organization_id }}'::UUID\n  AND etapa_nova = 'Negociacao Quente'\nORDER BY created_at DESC\nLIMIT 1;",
+        "options": {}
+      },
+      "id": "00800000-0000-4000-8008-000000000001",
+      "name": "Verifica Historico Neg Quente",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-720, 3900],
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "OU8cyzGlL8UbRk7p",
+          "name": "supabase-afiliadotruppel"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            { "id": "thr-nq-01", "leftValue": "={{ $json.dias_desde_criacao }}", "rightValue": 10, "operator": { "type": "number", "operation": "gte" } },
+            { "id": "thr-nq-02", "leftValue": "={{ $json.dias_desde_criacao }}", "rightValue": "", "operator": { "type": "number", "operation": "empty", "singleValue": true } }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "00800000-0000-4000-8008-000000000002",
+      "name": "IF Threshold Neg Quente",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-480, 3900]
+    },
+    {
+      "parameters": {},
+      "id": "00800000-0000-4000-8008-000000000003",
+      "name": "NoOp Bloqueado Neg Quente",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [-240, 4150]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.followup_historico (organization_id, contact_id, etapa_anterior, etapa_nova, motivo, created_at)\nVALUES (\n  '{{ $('Variaveis do Contato').first().json.organization_id }}'::UUID,\n  '{{ $('Variaveis do Contato').first().json.contact_id }}'::UUID,\n  NULLIF('{{ $('Variaveis de Status').first().json.etapa_atual }}', ''),\n  'Negociacao Quente',\n  'followup_automatico',\n  NOW() - INTERVAL '3 hours'\n);",
+        "options": {}
+      },
+      "id": "00800000-0000-4000-8008-000000000004",
+      "name": "Registra Historico Neg Quente",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-240, 3900],
+      "credentials": {
+        "postgres": {
+          "id": "OU8cyzGlL8UbRk7p",
+          "name": "supabase-afiliadotruppel"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.followup_status_atual (id, organization_id, contact_id, etapa_nome, ultima_acao_em, updated_at)\nVALUES (\n  gen_random_uuid(),\n  '{{ $('Variaveis do Contato').first().json.organization_id }}'::UUID,\n  '{{ $('Variaveis do Contato').first().json.contact_id }}'::UUID,\n  'Negociacao Quente',\n  NOW() - INTERVAL '3 hours',\n  NOW() - INTERVAL '3 hours'\n)\nON CONFLICT (contact_id)\nDO UPDATE SET\n  etapa_nome     = EXCLUDED.etapa_nome,\n  ultima_acao_em = NOW() - INTERVAL '3 hours',\n  updated_at     = NOW() - INTERVAL '3 hours'\nWHERE\n  followup_status_atual.etapa_nome NOT IN ('Negociacao Fria', 'Negociacao Quente');",
+        "options": {}
+      },
+      "id": "00800000-0000-4000-8008-000000000005",
+      "name": "Atualiza Status Neg Quente",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [0, 3900],
+      "credentials": {
+        "postgres": {
+          "id": "OU8cyzGlL8UbRk7p",
+          "name": "supabase-afiliadotruppel"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://functions-api.clint.digital/endpoints/integration/webhook/8d91a27e-2743-4eaf-bfb9-4dbd93957ce7",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "nome", "value": "={{ $('Variaveis do Contato').first().json.nome }}" },
+            { "name": "email", "value": "={{ $('Variaveis do Contato').first().json.email }}" },
+            { "name": "telefone", "value": "={{ $('Variaveis do Contato').first().json.telefone }}" },
+            { "name": "etapa_funil", "value": "={{ $('Variaveis do Contato').first().json.etapa_funil }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "00800000-0000-4000-8008-000000000006",
+      "name": "Dispara Clint Neg Quente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 3900]
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [[{ "node": "Busca Contato", "type": "main", "index": 0 }]]
+    },
+    "Busca Contato": {
+      "main": [[{ "node": "IF: Contato existe?", "type": "main", "index": 0 }]]
+    },
+    "IF: Contato existe?": {
+      "main": [
+        [{ "node": "Variaveis do Contato", "type": "main", "index": 0 }],
+        [{ "node": "NoOp: Contato nao encontrado", "type": "main", "index": 0 }]
+      ]
+    },
+    "Variaveis do Contato": {
+      "main": [[{ "node": "Busca Status Atual", "type": "main", "index": 0 }]]
+    },
+    "Busca Status Atual": {
+      "main": [[{ "node": "Variaveis de Status", "type": "main", "index": 0 }]]
+    },
+    "Variaveis de Status": {
+      "main": [[{ "node": "Switch", "type": "main", "index": 0 }]]
+    },
+    "Switch": {
+      "main": [
+        [{ "node": "Verifica Historico Base", "type": "main", "index": 0 }],
+        [{ "node": "Verifica Historico Em Contato", "type": "main", "index": 0 }],
+        [{ "node": "Verifica Historico Dia 1", "type": "main", "index": 0 }],
+        [{ "node": "Verifica Historico Dia 2", "type": "main", "index": 0 }],
+        [{ "node": "Verifica Historico Dia 3", "type": "main", "index": 0 }],
+        [{ "node": "Verifica Historico Neg Fria", "type": "main", "index": 0 }],
+        [{ "node": "Verifica Historico Neg Quente", "type": "main", "index": 0 }]
+      ]
+    },
+    "Verifica Historico Base": {
+      "main": [[{ "node": "IF Threshold Base", "type": "main", "index": 0 }]]
+    },
+    "IF Threshold Base": {
+      "main": [
+        [{ "node": "Registra Historico Base", "type": "main", "index": 0 }],
+        [{ "node": "NoOp Bloqueado Base", "type": "main", "index": 0 }]
+      ]
+    },
+    "Registra Historico Base": {
+      "main": [[{ "node": "Atualiza Status Base", "type": "main", "index": 0 }]]
+    },
+    "Atualiza Status Base": {
+      "main": [[{ "node": "Dispara Clint Base", "type": "main", "index": 0 }]]
+    },
+    "Verifica Historico Em Contato": {
+      "main": [[{ "node": "IF Threshold Em Contato", "type": "main", "index": 0 }]]
+    },
+    "IF Threshold Em Contato": {
+      "main": [
+        [{ "node": "Registra Historico Em Contato", "type": "main", "index": 0 }],
+        [{ "node": "NoOp Bloqueado Em Contato", "type": "main", "index": 0 }]
+      ]
+    },
+    "Registra Historico Em Contato": {
+      "main": [[{ "node": "Atualiza Status Em Contato", "type": "main", "index": 0 }]]
+    },
+    "Atualiza Status Em Contato": {
+      "main": [[{ "node": "Dispara Clint Em Contato", "type": "main", "index": 0 }]]
+    },
+    "Verifica Historico Dia 1": {
+      "main": [[{ "node": "IF Threshold Dia 1", "type": "main", "index": 0 }]]
+    },
+    "IF Threshold Dia 1": {
+      "main": [
+        [{ "node": "Registra Historico Dia 1", "type": "main", "index": 0 }],
+        [{ "node": "NoOp Bloqueado Dia 1", "type": "main", "index": 0 }]
+      ]
+    },
+    "Registra Historico Dia 1": {
+      "main": [[{ "node": "Atualiza Status Dia 1", "type": "main", "index": 0 }]]
+    },
+    "Atualiza Status Dia 1": {
+      "main": [[{ "node": "Dispara Clint Dia 1", "type": "main", "index": 0 }]]
+    },
+    "Verifica Historico Dia 2": {
+      "main": [[{ "node": "IF Threshold Dia 2", "type": "main", "index": 0 }]]
+    },
+    "IF Threshold Dia 2": {
+      "main": [
+        [{ "node": "Registra Historico Dia 2", "type": "main", "index": 0 }],
+        [{ "node": "NoOp Bloqueado Dia 2", "type": "main", "index": 0 }]
+      ]
+    },
+    "Registra Historico Dia 2": {
+      "main": [[{ "node": "Atualiza Status Dia 2", "type": "main", "index": 0 }]]
+    },
+    "Atualiza Status Dia 2": {
+      "main": [[{ "node": "Dispara Clint Dia 2", "type": "main", "index": 0 }]]
+    },
+    "Verifica Historico Dia 3": {
+      "main": [[{ "node": "IF Threshold Dia 3", "type": "main", "index": 0 }]]
+    },
+    "IF Threshold Dia 3": {
+      "main": [
+        [{ "node": "Registra Historico Dia 3", "type": "main", "index": 0 }],
+        [{ "node": "NoOp Bloqueado Dia 3", "type": "main", "index": 0 }]
+      ]
+    },
+    "Registra Historico Dia 3": {
+      "main": [[{ "node": "Atualiza Status Dia 3", "type": "main", "index": 0 }]]
+    },
+    "Atualiza Status Dia 3": {
+      "main": [[{ "node": "Dispara Clint Dia 3", "type": "main", "index": 0 }]]
+    },
+    "Verifica Historico Neg Fria": {
+      "main": [[{ "node": "IF Threshold Neg Fria", "type": "main", "index": 0 }]]
+    },
+    "IF Threshold Neg Fria": {
+      "main": [
+        [{ "node": "Registra Historico Neg Fria", "type": "main", "index": 0 }],
+        [{ "node": "NoOp Bloqueado Neg Fria", "type": "main", "index": 0 }]
+      ]
+    },
+    "Registra Historico Neg Fria": {
+      "main": [[{ "node": "Atualiza Status Neg Fria", "type": "main", "index": 0 }]]
+    },
+    "Atualiza Status Neg Fria": {
+      "main": [[{ "node": "Dispara Clint Neg Fria", "type": "main", "index": 0 }]]
+    },
+    "Verifica Historico Neg Quente": {
+      "main": [[{ "node": "IF Threshold Neg Quente", "type": "main", "index": 0 }]]
+    },
+    "IF Threshold Neg Quente": {
+      "main": [
+        [{ "node": "Registra Historico Neg Quente", "type": "main", "index": 0 }],
+        [{ "node": "NoOp Bloqueado Neg Quente", "type": "main", "index": 0 }]
+      ]
+    },
+    "Registra Historico Neg Quente": {
+      "main": [[{ "node": "Atualiza Status Neg Quente", "type": "main", "index": 0 }]]
+    },
+    "Atualiza Status Neg Quente": {
+      "main": [[{ "node": "Dispara Clint Neg Quente", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {
+    "Start": [
+      {
+        "contact_id": "00000000-0000-0000-0000-000000000000",
+        "etapa_funil": "Em Contato",
+        "organization_id": "00000000-0000-0000-0000-000000000000"
+      }
+    ]
+  },
+  "meta": {
+    "instanceId": ""
+  }
+}
