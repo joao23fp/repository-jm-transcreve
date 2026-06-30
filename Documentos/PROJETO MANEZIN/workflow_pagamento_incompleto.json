@@ -1,0 +1,416 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * 1-6"
+            }
+          ]
+        }
+      },
+      "id": "a1000000-0000-0000-0000-000000000001",
+      "name": "Todo dia 09h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1040,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.cashbarber.com.br/api/auth/login",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-context",
+              "value": "painel"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "email",
+              "value": "kcardoso339@gmail.com"
+            },
+            {
+              "name": "password",
+              "value": "manekauan170101"
+            },
+            {
+              "name": "captchaToken"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "a1000000-0000-0000-0000-000000000002",
+      "name": "Login CashBarber",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -820,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const headers = $input.item.json.headers;\nconst setCookieHeader = headers['set-cookie'];\n\nlet token = '';\n\nif (Array.isArray(setCookieHeader)) {\n  const match = setCookieHeader.find(c => c.startsWith('access_token_painel='));\n  if (match) {\n    token = match.split('access_token_painel=')[1].split(';')[0];\n  }\n} else if (typeof setCookieHeader === 'string' && setCookieHeader.includes('access_token_painel=')) {\n  token = setCookieHeader.split('access_token_painel=')[1].split(';')[0];\n}\n\nif (!token) {\n  throw new Error('Token nao encontrado no cookie de resposta do login');\n}\n\nreturn [{ json: { token } }];"
+      },
+      "id": "a1000000-0000-0000-0000-000000000003",
+      "name": "Extrair Token",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -600,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const token = $input.first().json.token;\nconst url = 'https://api.cashbarber.com.br/api/painel/dashboard/getClientesPagamentoIncompleto';\nconst headers = {\n  'Authorization': `Bearer ${token}`,\n  'x-context': 'painel',\n  'Content-Type': 'application/json;charset=UTF-8',\n  'Accept': 'application/json'\n};\n\nfunction toE164(phone) {\n  if (!phone) return '';\n  let c = phone.toString().replace(/[^\\d]/g, '');\n  if (c.startsWith('55') && c.length >= 12) c = c.slice(2);\n  const ddd = c.slice(0, 2);\n  let num = c.slice(2);\n  if (num.length === 8) num = '9' + num;\n  return '55' + ddd + num;\n}\n\nconst clientes = [];\nlet page = 1, total = Infinity;\nwhile (clientes.length < total) {\n  const r = await this.helpers.httpRequest({ method: 'POST', url, headers, body: { page }, json: true });\n  total = r.total ?? 0;\n  const lote = r.clientes || [];\n  if (!lote.length) break;\n  for (const c of lote) {\n    clientes.push({\n      id_cliente: c.clp_id_cliente,\n      clp_id: c.id,\n      nome: c.cliente?.cli_name || '',\n      telefone_raw: c.cliente?.cli_telefone || '',\n      telefone: toE164(c.cliente?.cli_telefone),\n      plano: c.plano?.pla_nome || ''\n    });\n  }\n  page++;\n  if (page > 50) break;\n}\n\nreturn [{ json: { total: clientes.length, clientes } }];"
+      },
+      "id": "a1000000-0000-0000-0000-000000000004",
+      "name": "Coletar + Formatar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -380,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const clientes = ($input.first().json.clientes || []).filter(c => c.telefone);\nconst j = JSON.stringify(clientes).replace(/'/g, \"''\");\n\nconst cols = \"x(id_cliente bigint, clp_id bigint, nome text, telefone_raw text, telefone text, plano text)\";\n\nconst leadsSql = `\nINSERT INTO lead (lead_name, lead_telefone, mensalista, cliente_novo, update_at)\nSELECT x.nome, x.telefone, true, true, now()\nFROM jsonb_to_recordset('${j}'::jsonb) AS ${cols}\nWHERE x.telefone <> ''\n  AND NOT EXISTS (SELECT 1 FROM lead l WHERE l.lead_telefone = x.telefone);`;\n\nconst upsertSql = `\nINSERT INTO pagamento_incompleto\n  (id_cliente_cashbarber, clp_id, lead_id, nome, telefone_e164, plano, status, primeira_deteccao, ultima_deteccao)\nSELECT x.id_cliente, x.clp_id,\n       (SELECT id FROM lead l WHERE l.lead_telefone = x.telefone ORDER BY created_at LIMIT 1),\n       x.nome, x.telefone, x.plano, 'atrasado', now(), now()\nFROM jsonb_to_recordset('${j}'::jsonb) AS ${cols}\nON CONFLICT (id_cliente_cashbarber) DO UPDATE SET\n  clp_id        = EXCLUDED.clp_id,\n  lead_id       = COALESCE(EXCLUDED.lead_id, pagamento_incompleto.lead_id),\n  nome          = EXCLUDED.nome,\n  telefone_e164 = EXCLUDED.telefone_e164,\n  plano         = EXCLUDED.plano,\n  status        = 'atrasado',\n  total_notificacoes = CASE WHEN pagamento_incompleto.status = 'resolvido' THEN 0 ELSE pagamento_incompleto.total_notificacoes END,\n  ultima_notificacao_em = CASE WHEN pagamento_incompleto.status = 'resolvido' THEN NULL ELSE pagamento_incompleto.ultima_notificacao_em END,\n  ultima_deteccao = now();`;\n\nconst resolvidosSql = `\nUPDATE pagamento_incompleto\nSET status = 'resolvido'\nWHERE status = 'atrasado'\n  AND ultima_deteccao < date_trunc('day', now());`;\n\nconst batchSql = [leadsSql, upsertSql, resolvidosSql].join('\\n');\nreturn [{ json: { batchSql } }];"
+      },
+      "id": "a1000000-0000-0000-0000-000000000005",
+      "name": "Montar SQL lote",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.batchSql }}",
+        "options": {}
+      },
+      "id": "a1000000-0000-0000-0000-000000000006",
+      "name": "Gravar lote (leads + atrasados)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        60,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "WB71MPC92MHbieBr",
+          "name": "O menezinho Post"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT DISTINCT ON (pi.telefone_e164)\n       pi.id AS pagamento_id, pi.lead_id, pi.nome, pi.telefone_e164,\n       trim(regexp_replace(COALESCE(pi.plano,''), '\\s+', ' ', 'g')) AS plano,\n       pi.total_notificacoes,\n       COALESCE(NULLIF(pi.nome, ''), l.lead_name, 'Cliente') AS lead_name,\n       pi.telefone_e164 AS lead_telefone,\n       'Olá, ' || COALESCE(NULLIF(pi.nome,''), 'tudo bem') || '! 👋' || chr(10) || chr(10) ||\n       'Vimos aqui que ficou um pagamento pendente no seu plano \"' || trim(regexp_replace(COALESCE(pi.plano,''), '\\s+', ' ', 'g')) || '\".' || chr(10) || chr(10) ||\n       'Pra deixar tudo em dia é rapidinho — qualquer coisa a gente te ajuda! 💈' AS msg_cliente\nFROM pagamento_incompleto pi\nLEFT JOIN lead l ON l.id = pi.lead_id\nWHERE pi.status = 'atrasado'\n  AND pi.telefone_e164 <> ''\n  AND pi.total_notificacoes < 2\n  AND (pi.ultima_notificacao_em IS NULL OR pi.ultima_notificacao_em < now() - interval '5 days')\nORDER BY pi.telefone_e164, pi.ultima_deteccao DESC\nLIMIT 1;",
+        "options": {}
+      },
+      "id": "a1000000-0000-0000-0000-000000000007",
+      "name": "Selecionar Elegiveis",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        280,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "WB71MPC92MHbieBr",
+          "name": "O menezinho Post"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://fillipi.uazapi.com/send/text",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "5511996025026"
+            },
+            {
+              "name": "text",
+              "value": "={{ $json.msg_cliente }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-0000-0000-000000000008",
+      "name": "Envia msg (CLIENTE)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        -96
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "nVC4fNfNURrrsAYo",
+          "name": "Uazapi Manezinho"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Selecionar Elegiveis').item.json;\nconst esc = s => (s == null ? '' : s.toString()).replace(/'/g, \"''\");\nconst pid = `'${esc(d.pagamento_id)}'::uuid`;\nconst tel = esc(d.telefone_e164);\nconst leadId = d.lead_id ? `'${esc(d.lead_id)}'::uuid` : 'NULL';\n\nconst sql =\n`UPDATE pagamento_incompleto\n   SET ultima_notificacao_em = now(), total_notificacoes = total_notificacoes + 1\n WHERE telefone_e164 = '${tel}';\nINSERT INTO pagamento_incompleto_notificacoes\n  (pagamento_id, lead_id, nome, telefone_e164, motivo, enviado_em)\nVALUES (${pid}, ${leadId}, '${esc(d.lead_name || d.nome)}', '${esc(d.lead_telefone || d.telefone_e164)}', '${esc(d.msg_cliente)}', now());`;\n\nreturn [{ json: { sql } }];"
+      },
+      "id": "a1000000-0000-0000-0000-000000000009",
+      "name": "Montar SQL notificacao",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.sql }}",
+        "options": {}
+      },
+      "id": "a1000000-0000-0000-0000-00000000000a",
+      "name": "Gravar notificacao",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        940,
+        -96
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "WB71MPC92MHbieBr",
+          "name": "O menezinho Post"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "a1000000-0000-0000-0000-00000000000b",
+      "name": "Falha no envio",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        720,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json);\nif (!rows.length) return [];\nconst norm = s => (s == null ? '' : s.toString()).replace(/\\s+/g, ' ').trim();\n\nconst linhas = rows.map((d, idx) => {\n  const nome  = norm(d.lead_name || d.nome) || 'Cliente';\n  const tel   = norm(d.lead_telefone || d.telefone_e164);\n  const plano = norm(d.plano);\n  return `${idx + 1}. ${nome} — ${tel}${plano ? ' (' + plano + ')' : ''}`;\n}).join('\\n');\n\nconst text =\n`📋 *COBRANÇAS ENVIADAS HOJE (${rows.length})*\n\nClientes avisados sobre pagamento pendente:\n\n${linhas}`;\n\nreturn [{ json: { text, qtd: rows.length } }];"
+      },
+      "id": "a1000000-0000-0000-0000-00000000000c",
+      "name": "Consolidar Resumo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://fillipi.uazapi.com/send/text",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "120363409761393631@g.us"
+            },
+            {
+              "name": "text",
+              "value": "={{ $json.text }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-0000-0000-00000000000d",
+      "name": "Envia resumo (grupo)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        180
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "nVC4fNfNURrrsAYo",
+          "name": "Uazapi Manezinho"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Todo dia 09h": {
+      "main": [
+        [
+          {
+            "node": "Login CashBarber",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Login CashBarber": {
+      "main": [
+        [
+          {
+            "node": "Extrair Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrair Token": {
+      "main": [
+        [
+          {
+            "node": "Coletar + Formatar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Coletar + Formatar": {
+      "main": [
+        [
+          {
+            "node": "Montar SQL lote",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar SQL lote": {
+      "main": [
+        [
+          {
+            "node": "Gravar lote (leads + atrasados)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gravar lote (leads + atrasados)": {
+      "main": [
+        [
+          {
+            "node": "Selecionar Elegiveis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Selecionar Elegiveis": {
+      "main": [
+        [
+          {
+            "node": "Envia msg (CLIENTE)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Consolidar Resumo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Envia msg (CLIENTE)": {
+      "main": [
+        [
+          {
+            "node": "Montar SQL notificacao",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Falha no envio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar SQL notificacao": {
+      "main": [
+        [
+          {
+            "node": "Gravar notificacao",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consolidar Resumo": {
+      "main": [
+        [
+          {
+            "node": "Envia resumo (grupo)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "fee30c361df85cab23eb5f2d6d5a73b5235f003d3e87d249301b82f3102b0797"
+  }
+}
